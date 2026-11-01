@@ -1,9 +1,11 @@
 """Agent core: Input -> Verdict. Channel-agnostic.
 
-1. Pre-process media deterministically (voice -> transcript, image -> QRIS decode).
-   Images then go straight into the Muse Spark verdict call (one call: vision + judgement);
+1. Pre-process media: voice/video -> transcript (Muse Voice; the model can't judge audio it can't
+   read, so this always runs first). Images get a quick local QR scan so we can tell the model a QR
+   is there. Images then go straight into the Muse Spark verdict call (one call: vision + judgement);
    if that's rejected, fall back to describe_image (separate Muse vision call) + text-only verdict.
-2. Ask the model with tool specs (check_link, safe_word_check); run a short tool loop.
+2. Ask the model with tool specs (check_link, safe_word_check, and decode_qris for images);
+   run a short tool loop. The model decides which tools to call.
 3. Validate the verdict JSON; repair once; otherwise fall back to WASPADA.
 4. Apply safety floors (never "100% aman", low-confidence AMAN -> WASPADA, APK -> BAHAYA),
    recording every change as an override so "Muse said X, rule changed it to Y" is visible.
@@ -54,6 +56,28 @@ TOOL_SPECS = [
 ]
 
 
+QRIS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "decode_qris",
+        "description": "Baca kode QR/QRIS di gambar terlampir: nama merchant, kota, NMID, nominal, dan apakah "
+        "checksum (CRC) valid. Panggil kalau gambar berisi kode QR, lalu bandingkan nama merchant dengan nama "
+        "toko/masjid di gambar atau caption.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+
+def _tool_specs(inp: Input) -> list:
+    return TOOL_SPECS + ([QRIS_TOOL] if inp.type == "image" and inp.media_bytes else [])
+
+
+def _qris_for_model(q: dict | None) -> dict:
+    if not q:
+        return {"found": False, "note": "Tidak ada kode QR yang terbaca di gambar."}
+    return {"found": True, **{k: v for k, v in q.items() if k != "raw"}, "ringkasan": qris.summarize(q)}
+
+
 # --------------------------------------------------------------------------- pre-processing
 
 def _preprocess(inp: Input, result: AnalysisResult) -> tuple[str, list[str]]:
@@ -75,18 +99,16 @@ def _preprocess(inp: Input, result: AnalysisResult) -> tuple[str, list[str]]:
 
     elif inp.type == "image" and inp.media_bytes:
         context.append("Jenis: gambar/screenshot yang diteruskan.")
-        try:
-            q = qris.decode_qris(inp.media_bytes)
-            if q is not None:
-                result.tools_used.append("decode_qris")
-                result.tool_outputs["decode_qris"] = q
-                context.append(qris.summarize(q))
-                context.append(
-                    "Kalau ada nama toko di gambar/caption, bandingkan dengan merchant_name QR. "
-                    "Tidak cocok atau crc_valid=False -> qris_palsu."
-                )
+        try:  # local and fast; the model reads the content itself by calling decode_qris
+            result.qris_precheck = qris.decode_qris(inp.media_bytes)
         except Exception as exc:
             log.warning("qris decode failed: %s", exc)
+        if result.qris_precheck:
+            context.append(
+                "Ada kode QR di gambar. Panggil decode_qris untuk membaca nama merchant dan cek keasliannya, "
+                "lalu bandingkan dengan nama toko/masjid di gambar atau caption. "
+                "Tidak cocok atau crc_valid=False -> qris_palsu."
+            )
 
     elif inp.type == "document":
         context.append("Jenis: file/dokumen yang diteruskan (isi file tidak dibuka).")
@@ -138,11 +160,15 @@ def _describe_image_into(inp: Input, result: AnalysisResult, text: str, context:
 
 # --------------------------------------------------------------------------- tool loop
 
-def _run_tool(name: str, args: dict, inp: Input) -> dict:
+def _run_tool(name: str, args: dict, inp: Input, result: AnalysisResult) -> dict:
     if name == "check_link":
         return links.check_link(str(args.get("url", "")))
     if name == "safe_word_check":
         return safe_word.safe_word_check(inp.user_id)
+    if name == "decode_qris" and inp.type == "image" and inp.media_bytes:
+        if result.qris_precheck:
+            result.tool_outputs["decode_qris"] = result.qris_precheck
+        return _qris_for_model(result.qris_precheck)
     return {"error": f"unknown tool {name}"}
 
 
@@ -184,7 +210,7 @@ def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: Ana
     called: set[str] = set()
 
     for _step in range(settings.max_tool_steps):
-        resp = provider.chat(messages, tools=TOOL_SPECS)
+        resp = provider.chat(messages, tools=_tool_specs(inp))
         msg = resp.choices[0].message
         if not msg.tool_calls:
             verdict = _parse_verdict(msg.content)
@@ -200,14 +226,15 @@ def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: Ana
                 args = {}
             key = f"{tc.function.name}:{json.dumps(args, sort_keys=True)}"
             try:
-                out = _run_tool(tc.function.name, args, inp) if key not in called else {"note": "sudah dicek"}
+                out = _run_tool(tc.function.name, args, inp, result) if key not in called else {"note": "sudah dicek"}
             except Exception as exc:  # tool failure degrades to text-only judgement
                 log.warning("tool %s failed: %s", tc.function.name, exc)
                 out = {"error": "tool gagal, nilai dari teks saja"}
             called.add(key)
             if tc.function.name not in result.tools_used:
                 result.tools_used.append(tc.function.name)
-            result.tool_outputs.setdefault(tc.function.name, []).append(out)
+            if tc.function.name != "decode_qris":  # decode_qris keeps the decoded dict (set in _run_tool)
+                result.tool_outputs.setdefault(tc.function.name, []).append(out)
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(out, ensure_ascii=False)})
 
     # Repair / force a final structured answer once.
@@ -232,11 +259,22 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
             result.overrides.append({"rule": rule, "field": field, "from": old, "to": new})
             setattr(v, field, new)
 
-    if inp.type == "document" and ".apk" in (inp.text or "").lower():
+    # The model was told a QR is there; if it skipped decode_qris, still apply the QR checks.
+    if result.qris_precheck and "decode_qris" not in result.tool_outputs:
+        result.tool_outputs["decode_qris"] = result.qris_precheck
+        result.tools_used.append("decode_qris")
+        result.overrides.append({"rule": "qris_dibaca_otomatis", "field": "tools"})
+
+    is_apk = inp.type == "document" and ".apk" in (inp.text or "").lower()
+    if is_apk:
         change("apk_selalu_bahaya", "risk", "BAHAYA")
         if v.category == "lainnya":
             change("apk_selalu_bahaya", "category", "kurir_apk")
         v.confidence = max(v.confidence, 0.9)
+    if (is_apk or v.category == "kurir_apk") and v.risk == "BAHAYA" \
+            and not any(_INSTALLED.search(step) for step in v.next_steps):
+        result.overrides.append({"rule": "langkah_apk_terpasang", "field": "next_steps"})
+        v.next_steps = v.next_steps[:2] + [_APK_INSTALLED_STEP]
     link_flags = [f for out in result.tool_outputs.get("check_link", []) for f in out.get("flags", [])]
     if any(f.startswith("google_safe_browsing") for f in link_flags):
         change("safe_browsing_hit", "risk", "BAHAYA")
@@ -266,6 +304,9 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
     return v
 
 
+_INSTALLED = re.compile(r"(?i)terlanjur|sudah\s+(di|ter)?(pasang|install|instal)|terpasang|ter-?install")
+_APK_INSTALLED_STEP = ("Kalau sudah terlanjur dipasang, matikan internet (data dan WiFi), "
+                       "lalu telepon call center resmi bank.")
 _RANK = {"AMAN": 0, "WASPADA": 1, "BAHAYA": 2}
 _DEFAULT_REPLY = {
     "AMAN": "Ibu/Bapak, pesan ini kelihatannya aman, tapi tetap hati-hati ya.",

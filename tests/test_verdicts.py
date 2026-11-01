@@ -207,8 +207,38 @@ def test_qris_image_context(fake, monkeypatch):
     monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="", max_tool_steps=4, llm_provider="meta"))
     p = fake([_resp(_verdict_json(risk="WASPADA", category="qris_palsu", alert_guardian=False))])
     r = orchestrator.analyze(Input(type="image", text="Toko Maju Jaya", media_bytes=qr_png(make_qris("ANDI CELL"))))
-    assert "decode_qris" in r.tools_used
-    assert "ANDI CELL" in p.calls[0]["messages"][1]["content"]
+    assert "Ada kode QR" in p.calls[0]["messages"][1]["content"]
+    assert "decode_qris" in [t["function"]["name"] for t in p.calls[0]["tools"]]
+    # the model didn't call it: the QR checks still run, and that's recorded
+    assert "decode_qris" in r.tools_used and r.tool_outputs["decode_qris"]["merchant_name"] == "ANDI CELL"
+    assert any(o["rule"] == "qris_dibaca_otomatis" for o in r.overrides)
+
+
+def test_model_calls_decode_qris(fake, monkeypatch):
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="", max_tool_steps=4, llm_provider="meta"))
+    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="decode_qris", arguments="{}"))
+    p = fake([_resp(tool_calls=[call]), _resp(_verdict_json(risk="BAHAYA", category="qris_palsu"))])
+    r = orchestrator.analyze(Input(type="image", text="Toko Maju Jaya", media_bytes=qr_png(make_qris("ANDI CELL"))))
+    tool_msg = p.calls[1]["messages"][-1]
+    assert tool_msg["role"] == "tool" and "ANDI CELL" in tool_msg["content"] and '"found": true' in tool_msg["content"]
+    assert r.tool_outputs["decode_qris"]["merchant_name"] == "ANDI CELL"
+    assert not any(o["rule"] == "qris_dibaca_otomatis" for o in r.overrides)
+
+
+def test_text_input_has_no_qris_tool(fake):
+    p = fake([_resp(_verdict_json())])
+    orchestrator.analyze(Input(type="text", text="CS BCA, kirim OTP"))
+    assert "decode_qris" not in [t["function"]["name"] for t in p.calls[0]["tools"]]
+
+
+def test_apk_gets_installed_step(fake):
+    fake([_resp(_verdict_json(risk="BAHAYA", category="kurir_apk", next_steps=["Jangan buka.", "Hapus pesannya."]))])
+    r = orchestrator.analyze(Input(type="document", text="[File terlampir: resi.apk]"))
+    assert len(r.verdict.next_steps) == 3 and "terlanjur dipasang" in r.verdict.next_steps[-1]
+    fake([_resp(_verdict_json(risk="BAHAYA", category="kurir_apk",
+                              next_steps=["Jangan buka.", "Kalau sudah terpasang, matikan internet."]))])
+    r = orchestrator.analyze(Input(type="document", text="[File terlampir: resi.apk]"))
+    assert len(r.verdict.next_steps) == 2  # model already said it
 
 
 def test_image_single_call(fake):
@@ -217,7 +247,7 @@ def test_image_single_call(fake):
     r = orchestrator.analyze(Input(type="image", text="Warung Bu Sri", media_bytes=qr_png(make_qris("ANDI CELL")), mime="image/png"))
     content = p.calls[0]["messages"][1]["content"]
     assert isinstance(content, list) and content[1]["image_url"]["url"].startswith("data:image/png;base64,")
-    assert "ANDI CELL" in content[0]["text"]
+    assert "Ada kode QR" in content[0]["text"]
     assert len(p.calls) == 1 and r.image_mode == "single_call" and "muse_vision" in r.tools_used
 
 
