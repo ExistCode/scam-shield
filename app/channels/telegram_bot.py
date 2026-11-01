@@ -115,8 +115,8 @@ def typing(chat_id: int | str, every: float = 4.0):
         stop.set()
 
 
-def send_guardian_alert(chat_id: int | str, parent_label: str, v: Verdict) -> None:
-    send_text(chat_id, guardian_alert_text(parent_label, v))
+def send_guardian_alert(chat_id: int | str, guardian: str, panggilan: str, v: Verdict) -> None:
+    send_text(chat_id, guardian_alert_text(guardian, panggilan, v))
 
 
 def download_file(file_id: str) -> bytes:

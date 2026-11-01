@@ -149,7 +149,7 @@ def _link(session: str, parent_id: int, name: str, relation: str, announce: bool
     p = persona.panggilan(repo.get_profile(parent_id))
     if announce:
         push(guardian.web_id, f"Halo {name}! 👋 {p or 'Keluargamu'} daftarin kamu sebagai *wali* di Ronda. "
-                              "Kalau beliau dapat pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
+                              f"Kalau {p or 'dia'} dapet pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
     return (f"✅ {name} ({relation}) sekarang ikut jagain{' ' + p if p else ''}. "
             f"Kalau ada pesan bahaya, {name} langsung aku kabarin.")
 
@@ -244,8 +244,7 @@ def process(req: SendReq) -> None:
                     push(pid, ans.reply)
                     if ans.already_paid:
                         label = persona.panggilan(profile) or "Keluargamu"
-                        for g in repo.active_guardians(user.id):
-                            notify.alert_guardian(g, label, followup.urgent_verdict(last))
+                        notify.alert_urgent(user.id, label, followup.urgent_verdict(last))
                     return
 
         inp, input_type = _build_input(req, user.id, profile)

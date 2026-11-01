@@ -351,7 +351,7 @@ def test_webhook_end_to_end_with_guardian(client, monkeypatch):
     from app.channels import whatsapp_sender, whatsapp_webhook
     sent, alerts = [], []
     monkeypatch.setattr(whatsapp_sender, "send_text", lambda to, body, reply_to=None: sent.append((to, body)))
-    monkeypatch.setattr(whatsapp_sender, "send_guardian_alert", lambda g, label, v: alerts.append((g, label, v.risk)))
+    monkeypatch.setattr(whatsapp_sender, "send_guardian_alert", lambda g, name, panggilan, v: alerts.append((g, panggilan, v.risk)))
     monkeypatch.setattr(whatsapp_webhook, "analyze", lambda inp: orchestrator.AnalysisResult(
         verdict=Verdict.model_validate_json(_verdict_json()), provider="fake", model="fake"))
 

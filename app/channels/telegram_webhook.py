@@ -177,7 +177,7 @@ def _handle_command(cmd: str, arg: str, user, chat_id: int, label: str, first_na
                 log.info("could not notify parent of new guardian")
         parent_name = pp or (parent.name or "keluargamu").split(" (@")[0]
         return (f"✅ Sekarang kamu jadi *wali* buat {parent_name} di Ronda.\n"
-                "Kalau beliau dapat pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
+                f"Kalau {parent_name} dapet pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
     if cmd == "start":
         if p:
             return WELCOME_BACK.replace("{v}", v)
@@ -291,8 +291,7 @@ def _handle_followup(text: str, user, chat_id: int, mid: int, label: str, profil
         return False
     telegram_bot.send_text(chat_id, ans.reply, reply_to=mid)
     if ans.already_paid:
-        for g in repo.active_guardians(user.id):  # no cooldown: this is the emergency
-            notify.alert_guardian(g, label, followup.urgent_verdict(last))
+        notify.alert_urgent(user.id, label, followup.urgent_verdict(last))
     log.info("tg follow-up for case=%s already_paid=%s", last["case_id"], ans.already_paid)
     return True
 

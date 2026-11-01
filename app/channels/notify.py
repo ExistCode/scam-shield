@@ -7,8 +7,10 @@ from app.db.models import User
 log = logging.getLogger("cekdulu.notify")
 
 
-def alert_guardian(guardian: User, parent_label: str, verdict: Verdict) -> bool:
-    """Returns True if the alert was handed to a channel."""
+def alert_guardian(guardian: User, panggilan: str, verdict: Verdict, guardian_name: str | None = None) -> bool:
+    """Returns True if the alert was handed to a channel. `panggilan` = how the parent is called
+    ("Mama"), `guardian_name` = how we greet the guardian ("Hans")."""
+    name = guardian_name or short_name(guardian)
     from app.channels import telegram_bot, whatsapp_sender  # local import: avoid cycles
 
     try:
@@ -16,13 +18,13 @@ def alert_guardian(guardian: User, parent_label: str, verdict: Verdict) -> bool:
             from app.channels import web_demo
             from app.channels.formatting import guardian_alert_text
 
-            web_demo.push(guardian.web_id, guardian_alert_text(parent_label, verdict))
+            web_demo.push(guardian.web_id, guardian_alert_text(name, panggilan, verdict))
             return True
         if guardian.tg_chat_id:
-            telegram_bot.send_guardian_alert(guardian.tg_chat_id, parent_label, verdict)
+            telegram_bot.send_guardian_alert(guardian.tg_chat_id, name, panggilan, verdict)
             return True
         if guardian.wa_number:
-            whatsapp_sender.send_guardian_alert(guardian.wa_number, parent_label, verdict)
+            whatsapp_sender.send_guardian_alert(guardian.wa_number, name, panggilan, verdict)
             return True
     except Exception as exc:
         log.error("guardian alert to user %s failed: %s", guardian.id, exc)
@@ -54,12 +56,24 @@ def alert_guardians(parent_user_id: int, parent_label: str, verdict: Verdict) ->
     guardians = repo.active_guardians(parent_user_id)
     if not guardians:
         return "none", []
-    fam = repo.get_profile(parent_user_id)["contacts"]
+    profile = repo.get_profile(parent_user_id)
+    fam, panggilan = profile["contacts"], profile.get("panggilan") or parent_label.split(" (@")[0]
     targets = guardian_policy.guardians_to_alert(parent_user_id, verdict)
     if not targets:
         return "already", [short_name(g, fam) for g in guardians]
-    names = [short_name(g, fam) for g in targets if alert_guardian(g, parent_label, verdict)]
+    names = [short_name(g, fam) for g in targets
+             if alert_guardian(g, panggilan, verdict, guardian_name=short_name(g, fam))]
     return ("sent", names) if names else ("failed", [short_name(g, fam) for g in targets])
+
+
+def alert_urgent(parent_user_id: int, parent_label: str, verdict: Verdict) -> int:
+    """Parent says they already paid: alert every guardian now (no cooldown). Returns how many were sent."""
+    from app.db import repo
+
+    profile = repo.get_profile(parent_user_id)
+    fam, panggilan = profile["contacts"], profile.get("panggilan") or parent_label.split(" (@")[0]
+    return sum(alert_guardian(g, panggilan, verdict, guardian_name=short_name(g, fam))
+               for g in repo.active_guardians(parent_user_id))
 
 
 def describe(user: User) -> str:

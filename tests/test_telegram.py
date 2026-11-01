@@ -80,8 +80,8 @@ def test_guardian_link_and_alert(client, monkeypatch):
 
     post(PARENT, "Paket Anda tertahan, install Cek_Resi.apk")
     assert any(c == str(PARENT) and "*BAHAYA*" in t for c, t in sent)
-    alerts = [t for c, t in sent if c == str(CHILD) and "Peringatan" in t]
-    assert len(alerts) == 1 and "Sri" in alerts[0]
+    alerts = [t for c, t in sent if c == str(CHILD) and "barusan dapet pesan BAHAYA" in t]
+    assert len(alerts) == 1 and alerts[0].startswith("🔴 Hans, Sri barusan dapet pesan BAHAYA")
 
     post(PARENT, "/status")
     assert "Hans" in sent[-1][1]
@@ -157,7 +157,7 @@ def test_followup_answered_in_context(client, monkeypatch):
         {"intent": "followup", "reply": "Segera telepon bank ya Bu.", "already_paid": True}))
     n_child = sum(1 for c, _ in sent if c == str(CHILD))
     post(PARENT, "aduh aku sudah transfer 2 juta")
-    assert any(c == str(CHILD) and "*sudah terlanjur*" in t and "Darurat" in t for c, t in sent[n_child:])
+    assert any(c == str(CHILD) and t.startswith("🚨 Hans, Sri bilang udah terlanjur transfer") for c, t in sent[n_child:])
     emergency = [t for c, t in sent if c == str(PARENT)][-1]
     assert emergency.startswith("Segera telepon bank ya Bu.")
     assert "1500888" in emergency and "https://iasc.ojk.go.id" in emergency  # added by code, not the model
@@ -299,3 +299,40 @@ def test_trace_without_tools_or_overrides():
                       "details": {"trace": [], "overrides": []}})
     assert "Muse menilai dari teksnya saja" in out and "Muse Spark (muse-spark-1.3)" in out
     assert "Tidak ada. Jawaban Muse dipakai apa adanya." in out
+
+
+# --------------------------------------------------------------------------- guardian alert wording
+
+@pytest.mark.parametrize("money_sent", [False, True])
+def test_guardian_alert_is_casual_and_named(money_sent):
+    from app.channels.formatting import guardian_alert_text
+    v = BAHAYA.model_copy(update={"category": "cs_bank_palsu", "money_sent": money_sent,
+                                  "reason": "Bank asli nggak pernah minta OTP lewat chat. Abaikan aja ya, beliau aman kalau nggak kirim kode."})
+    text = guardian_alert_text("Hans", "Mama", v)
+    for banned in ("Cek Dulu", "Mohon", "beliau"):
+        assert banned.lower() not in text.lower(), (banned, text)
+    if money_sent:
+        assert text.startswith("🚨 Hans, Mama bilang udah terlanjur transfer")
+    else:
+        assert text == ("🔴 Hans, Mama barusan dapet pesan BAHAYA (CS bank palsu). "
+                        "Alasannya: Bank asli nggak pernah minta OTP lewat chat. "
+                        "Telepon Mama sekarang ya, sebelum ada transfer.")
+
+
+def test_guardian_alert_never_says_beliau_even_if_the_reason_does():
+    from app.channels.formatting import guardian_alert_text
+    v = BAHAYA.model_copy(update={"reason": "Pesan ini minta beliau transfer ke rekening pribadi."})
+    text = guardian_alert_text("Hans", "Mama", v)
+    assert "beliau" not in text and "minta Mama transfer" in text
+
+
+def test_whatsapp_guardian_template_params(monkeypatch):
+    from app.channels import whatsapp_sender
+    posted = []
+    monkeypatch.setattr(whatsapp_sender, "_post", lambda payload: posted.append(payload) or {})
+    whatsapp_sender.send_guardian_alert("6281200000000", "Hans", "Mama",
+                                        BAHAYA.model_copy(update={"reason": "Ada file APK."}))
+    params = [p["text"] for p in posted[0]["template"]["components"][0]["parameters"]]
+    assert params == ["Hans", "Mama", "aplikasi kurir palsu (APK)", "Ada file APK", "Mama"]
+    for p in params:
+        assert not any(b in p for b in ("Cek Dulu", "Mohon", "beliau"))

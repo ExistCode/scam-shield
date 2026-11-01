@@ -139,8 +139,8 @@ def _handle_command(text: str, user_id: int, sender: str, name: str | None) -> s
         try:
             whatsapp_sender.send_text(
                 number,
-                f"Halo! {_parent_label(name, sender)} daftarin kamu sebagai *wali* di Ronda. "
-                "Kamu bakal dikabarin kalau beliau dapat pesan penipuan yang bahaya.",
+                f"Halo! {p or _parent_label(name, sender)} daftarin kamu sebagai *wali* di Ronda. "
+                f"Kamu bakal aku kabarin kalau {p or 'dia'} dapet pesan penipuan yang bahaya.",
             )
         except Exception:
             log.info("guardian intro not delivered (likely outside 24h window / not a test recipient)")
@@ -214,8 +214,7 @@ def _handle_followup(text: str, user, sender: str, mid: str, profile: dict | Non
         return False
     whatsapp_sender.send_text(sender, ans.reply, reply_to=mid)
     if ans.already_paid:
-        for g in repo.active_guardians(user.id):
-            notify.alert_guardian(g, _parent_label(user.name, sender), followup.urgent_verdict(last))
+        notify.alert_urgent(user.id, _parent_label(user.name, sender), followup.urgent_verdict(last))
     log.info("wa follow-up for case=%s already_paid=%s", last["case_id"], ans.already_paid)
     return True
 

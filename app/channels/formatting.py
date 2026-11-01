@@ -86,18 +86,24 @@ def tools_footer(result: AnalysisResult) -> str:
     return ("🔎 _Dicek dengan: " + " → ".join(steps) + "_") if steps else ""
 
 
-def guardian_alert_text(parent_label: str, v: Verdict) -> str:
+def one_line_reason(v: Verdict, panggilan: str = "") -> str:
+    """First sentence of the verdict reason, without the final period, for the guardian alert."""
+    text = " ".join((v.reason or "").split())
+    first = re.split(r"(?<=[.!?])\s+", text)[0] if text else ""
+    first = re.sub(r"(?i)\bbeliau\b", panggilan or "dia", first)
+    return first.rstrip(" .!?") or "ada tanda-tanda penipuan"
+
+
+def guardian_alert_text(guardian: str, panggilan: str, v: Verdict) -> str:
+    """Casual alert to the guardian, by name, about their parent (by the parent's panggilan)."""
     category = CATEGORY_LABEL.get(v.category, v.category)
-    if v.money_sent:  # "aku udah transfer": it's no longer "before any money is sent"
-        return (
-            f"🚨 *Darurat Ronda*\n\n{parent_label} bilang mungkin *sudah terlanjur* transfer, kirim kode, "
-            f"atau pasang aplikasi ({category}).\n\nTelepon beliau sekarang dan bantu telepon call center "
-            "bank untuk blokir, lalu lapor secepatnya (sebelum 12 jam) supaya dananya bisa diblokir."
-        )
-    return (
-        f"🔴 *Peringatan Ronda*\n\n{parent_label} baru saja menerima pesan yang terdeteksi "
-        f"*BAHAYA* ({category}).\nAlasan: {v.reason}\n\nMohon hubungi beliau sebelum ada uang yang ditransfer."
-    )
+    g = guardian or "Halo"
+    p = panggilan or "keluargamu"
+    if v.money_sent:  # "aku udah transfer": it's no longer "before any transfer"
+        return (f"🚨 {g}, {p} bilang udah terlanjur transfer, kirim kode, atau pasang aplikasi ({category}). "
+                f"Telepon {p} sekarang ya, bantu telepon bank buat blokir, terus lapor secepatnya sebelum 12 jam.")
+    return (f"🔴 {g}, {p} barusan dapet pesan BAHAYA ({category}). Alasannya: {one_line_reason(v, p)}. "
+            f"Telepon {p} sekarang ya, sebelum ada transfer.")
 
 
 _BOLD = re.compile(r"\*([^*\n]+)\*")

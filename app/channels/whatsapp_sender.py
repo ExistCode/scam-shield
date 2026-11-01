@@ -4,7 +4,7 @@ import logging
 import httpx
 
 from app.agent.schema import Verdict
-from app.channels.formatting import CATEGORY_LABEL, guardian_alert_text
+from app.channels.formatting import CATEGORY_LABEL, guardian_alert_text, one_line_reason
 from app.config import settings
 
 log = logging.getLogger("cekdulu.wa")
@@ -40,14 +40,18 @@ def mark_read(message_id: str) -> None:
         pass
 
 
-def send_guardian_alert(guardian_number: str, parent_label: str, v: Verdict) -> dict:
+def send_guardian_alert(guardian_number: str, guardian: str, panggilan: str, v: Verdict) -> dict:
     """Utility template; falls back to free-form text (works inside the 24h window).
 
-    Template body expected (2 params):
-      "Halo, {{1}} baru saja menerima pesan yang terdeteksi BAHAYA ({{2}}). Mohon hubungi beliau
-       sebelum ada uang yang ditransfer. - Ronda"
+    Template body expected (5 params, see README):
+      "🔴 {{1}}, {{2}} barusan dapet pesan BAHAYA ({{3}}). Alasannya: {{4}}. Telepon {{5}} sekarang ya,
+       sebelum ada transfer. - Ronda"
+    The "already paid" emergency text has no template and is sent free-form.
     """
     category = CATEGORY_LABEL.get(v.category, v.category)
+    if v.money_sent:
+        return send_text(guardian_number, guardian_alert_text(guardian, panggilan, v))
+    params = [guardian or "Halo", panggilan or "keluargamu", category, one_line_reason(v, panggilan), panggilan or "keluargamu"]
     try:
         return _post(
             {
@@ -59,10 +63,7 @@ def send_guardian_alert(guardian_number: str, parent_label: str, v: Verdict) -> 
                     "components": [
                         {
                             "type": "body",
-                            "parameters": [
-                                {"type": "text", "text": parent_label[:60]},
-                                {"type": "text", "text": category[:60]},
-                            ],
+                            "parameters": [{"type": "text", "text": t[:200]} for t in params],
                         }
                     ],
                 },
@@ -70,5 +71,5 @@ def send_guardian_alert(guardian_number: str, parent_label: str, v: Verdict) -> 
         )
     except httpx.HTTPError as exc:
         log.warning("template send failed (%s); falling back to free-form text", exc)
-        body = guardian_alert_text(parent_label, v)
+        body = guardian_alert_text(guardian, panggilan, v)
         return send_text(guardian_number, body)
