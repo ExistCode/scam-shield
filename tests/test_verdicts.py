@@ -416,6 +416,7 @@ def test_live_matrix(case):
 ASSETS = Path(__file__).parent / "manual" / "assets"
 IMAGE_CASES = [
     ("qris_palsu_tempelan.png", "Mau bayar di Warung Bu Sri, aman ga?", {"WASPADA", "BAHAYA"}),
+    ("qris_warung_foto.jpg", "Mau bayar di Warung Bu Sri pakai QRIS ini, aman ga?", {"BAHAYA"}),
     ("resi_palsu_chat.png", "", {"BAHAYA"}),
     ("qris_kotak_infaq.png", "Ini QRIS di kotak infaq masjid, mau sedekah", {"WASPADA", "BAHAYA"}),
     ("toko_online_palsu_chat.png", "Bu ini promo kulkas murah, beli ga ya", {"BAHAYA", "WASPADA"}),
@@ -430,7 +431,10 @@ def test_live_images(fname, caption, allowed):
     path = ASSETS / fname
     if not path.exists():
         pytest.skip("run: python -m tests.manual.make_assets")
-    r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime="image/png"))
+    mime = "image/jpeg" if fname.endswith(".jpg") else "image/png"
+    r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime=mime))
+    if fname == "qris_warung_foto.jpg":  # too small/blurry for the local scan: SAM 3.1 must find it
+        assert "sam_crop" in r.tools_used and r.tool_outputs["decode_qris"]["merchant_name"] == "ANDI CELL"
     out = format_reply(r.verdict)
     assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers + r.verdict.scam_account_numbers) == [], out
     assert not _OWNER_CLAIM.search(out), out
@@ -698,3 +702,46 @@ def test_wonder_failure_keeps_spark_verdict(spark_and_wonder):
     r = orchestrator.analyze(Input(type="text", text="halo bu"))
     assert calls == ["meta", "wonder"] and r.verdict.risk == "WASPADA" and r.provider == "meta"
     assert r.escalation["wonder"] is None
+
+
+# --------------------------------------------------------------------------- SAM 3.1 crop for hard QR photos
+
+def test_sam_parse_boxes():
+    from app.tools import segment
+    text = ("<0f>0<|box;x1=126;y1=335;x2=634;y2=845;w=760;h=1080;c=0.95|><|mask;x=0;y=0;data=1,1,!x|>,"
+            "1<|box;x1=1;y1=2;x2=3;y2=4;w=760;h=1080;c=0.2|><|mask;data=1,1,!x|>")
+    boxes = segment.parse_boxes(text)
+    assert boxes[0]["x1"] == 126 and boxes[0]["c"] == 0.95 and len(boxes) == 2
+    assert segment.parse_boxes("") == []
+
+
+def test_sam_crop_rescues_missed_qr(fake, monkeypatch):
+    """Local scan misses the QR; the model calls decode_qris; SAM finds it; the crop decodes."""
+    from app.tools import segment
+    big = cv2.copyMakeBorder(cv2.imdecode(np.frombuffer(qr_png(make_qris("ANDI CELL")), np.uint8), cv2.IMREAD_COLOR),
+                             600, 600, 600, 600, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    data = cv2.imencode(".png", big)[1].tobytes()
+    h, w = big.shape[:2]
+    real_decode = qris.decode_qr_image
+    monkeypatch.setattr(qris, "decode_qr_image", lambda b: None if b == data else real_decode(b))  # "missed"
+    monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: [{"x1": 550, "y1": 550, "x2": w - 550, "y2": h - 550, "c": 0.9}])
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta",
+                                                                  wonder_threshold=0))
+    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="decode_qris", arguments="{}"))
+    p = fake([_resp(tool_calls=[call]), _resp(_verdict_json(category="qris_palsu"))])
+    r = orchestrator.analyze(Input(type="image", text="Warung Bu Sri", media_bytes=data, mime="image/png"))
+    assert "Ada kode QR" not in p.calls[0]["messages"][1]["content"]  # the local scan found nothing
+    assert "ANDI CELL" in p.calls[1]["messages"][-1]["content"]       # but the tool answer has it
+    assert r.tools_used[:2] == ["decode_qris", "sam_crop"] or "sam_crop" in r.tools_used
+    assert r.tool_outputs["sam_crop"]["decoded"] is True
+
+
+def test_sam_failure_is_silent(fake, monkeypatch):
+    from app.tools import segment
+    monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: (_ for _ in ()).throw(RuntimeError("down")))
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta",
+                                                                  wonder_threshold=0))
+    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="decode_qris", arguments="{}"))
+    p = fake([_resp(tool_calls=[call]), _resp(_verdict_json(risk="WASPADA", category="lainnya", alert_guardian=False))])
+    r = orchestrator.analyze(Input(type="image", media_bytes=b"not-an-image-with-qr", mime="image/png"))
+    assert '"found": false' in p.calls[1]["messages"][-1]["content"] and r.verdict.risk == "WASPADA"

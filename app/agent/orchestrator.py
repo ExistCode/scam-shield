@@ -27,7 +27,7 @@ from app.agent.prompts import JSON_REPAIR_PROMPT, build_system_prompt, wrap_forw
 from app.agent.providers import Provider, fallback_name, get_provider
 from app.agent.schema import FALLBACK_VERDICT, VERDICT_JSON_SCHEMA, AnalysisResult, Input, Verdict
 from app.config import settings
-from app.tools import aduannomor, identifiers, links, qris, safe_word, transcribe, vision
+from app.tools import aduannomor, identifiers, links, qris, safe_word, segment, transcribe, vision
 
 log = logging.getLogger("cekdulu.agent")
 
@@ -168,10 +168,34 @@ def _run_tool(name: str, args: dict, inp: Input, result: AnalysisResult) -> dict
     if name == "safe_word_check":
         return safe_word.safe_word_check(inp.user_id)
     if name == "decode_qris" and inp.type == "image" and inp.media_bytes:
+        if not result.qris_precheck and "sam_crop" not in result.tool_outputs:
+            result.qris_precheck = _sam_qris(inp, result)
         if result.qris_precheck:
             result.tool_outputs["decode_qris"] = result.qris_precheck
         return _qris_for_model(result.qris_precheck)
     return {"error": f"unknown tool {name}"}
+
+
+def _sam_qris(inp: Input, result: AnalysisResult) -> dict | None:
+    """The model saw a QR code but the local scan missed it (small sticker in a big photo): ask SAM 3.1
+    where the QR code is, crop it, and decode the crop."""
+    if not settings.meta_api_key:
+        return None
+    try:
+        boxes = segment.find_boxes(inp.media_bytes, "QR code")
+    except Exception as exc:
+        log.warning("sam-3.1 failed: %s", exc)
+        result.tool_outputs["sam_crop"] = {"error": "failed"}
+        return None
+    result.tool_outputs["sam_crop"] = {"boxes": [{k: round(v, 2) for k, v in b.items()} for b in boxes[:3]]}
+    if boxes and "sam_crop" not in result.tools_used:
+        result.tools_used.append("sam_crop")
+    for box in boxes[:3]:
+        q = qris.decode_qris(segment.crop(inp.media_bytes, box))
+        if q:
+            result.tool_outputs["sam_crop"]["decoded"] = True
+            return q
+    return None
 
 
 def _parse_verdict(content: str | None) -> Verdict | None:

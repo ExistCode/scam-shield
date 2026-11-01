@@ -145,6 +145,24 @@ def video_call_mp4(caller: str, audio: Path, path: Path) -> bool:
         frame.unlink(missing_ok=True)
 
 
+def warung_photo(sticker_path: Path, path: Path, size: int = 240, blur: float = 1.4) -> None:
+    import numpy as np
+    from PIL import ImageFilter
+
+    rng = np.random.default_rng(7)
+    W, H = 3024, 4032
+    bg = Image.fromarray(rng.integers(90, 200, (H // 8, W // 8, 3), dtype=np.uint8)).resize((W, H), Image.BICUBIC)
+    d = ImageDraw.Draw(bg)
+    for _ in range(400):  # shelves, packets, price tags
+        x, y = rng.integers(0, W), rng.integers(0, H)
+        w, h = rng.integers(40, 400), rng.integers(40, 300)
+        d.rectangle([x, y, x + w, y + h], fill=tuple(int(c) for c in rng.integers(0, 255, 3)))
+    sticker = Image.open(sticker_path).convert("RGB")
+    s = sticker.resize((size, int(size * sticker.height / sticker.width)))
+    bg.paste(s, (1800, 2300))
+    bg.filter(ImageFilter.GaussianBlur(blur)).save(path, "JPEG", quality=70)
+
+
 # --------------------------------------------------------------------------- main
 
 FAKE_LINKS = [
@@ -168,6 +186,10 @@ def main() -> None:
     # 3. Legit-looking: everything matches
     qris_sticker("WARUNG BU SRI", "ID1020021234567",
                  qris_payload("WARUNG BU SRI", "BANDUNG", "ID1020021234567"), OUT / "qris_asli.png")
+
+    # 3b. Same fake sticker, but small and slightly blurry in a big 12 MP "warung" photo: the local scanner
+    #     misses it, SAM 3.1 finds and crops it (see app/tools/segment.py).
+    warung_photo(OUT / "qris_palsu_tempelan.png", OUT / "qris_warung_foto.jpg")
 
     # 4. Fake courier chat screenshot
     chat_screenshot("+62 857-2231-0098", [
