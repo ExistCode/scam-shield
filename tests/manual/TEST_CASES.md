@@ -25,7 +25,7 @@ Regenerate the files with `.venv/bin/python -m tests.manual.make_assets` (files 
 
 | File | Caption | Expect |
 |---|---|---|
-| `assets/toko_online_palsu_chat.png` | `Bu ini promo kulkas murah, beli ga ya` | 🔴 belanja_online, says to check the account at **cekrekening.id** |
+| `assets/toko_online_palsu_chat.png` | `Bu ini promo kulkas murah, beli ga ya` | 🔴 belanja_online: don't transfer to a personal account |
 | `assets/qris_kotak_infaq.png` | `Ini QRIS di kotak infaq masjid, mau sedekah` | 🔴 qris_palsu: sticker says MASJID AL-IKHLAS, QR pays **TOKO PULSA JAYA** |
 | `assets/video_polisi_gadungan.mp4` | (none) | 🔴 aparat_palsu: hang up, **110**, tell family |
 

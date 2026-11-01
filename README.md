@@ -35,12 +35,13 @@ Telegram / WhatsApp ─webhook─▶ FastAPI ─▶ "🔎 Sedang dicek…"
 ```
 
 1. The webhook checks its secret (`X-Telegram-Bot-Api-Secret-Token` / `X-Hub-Signature-256`), dedupes by message id, returns 200 right away and works in the background. The parent immediately sees **"🔎 Sedang dicek…"**, which Telegram then edits into the verdict.
-2. Voice notes **and videos** (e.g. a recorded "police" video call) are converted with ffmpeg and transcribed by Muse Voice first: the model can't judge audio it can't read. Images go straight into the Muse Spark call as image input. Account and phone numbers are spotted so the bot can point to cekrekening.id / aduannomor.id.
+2. Voice notes **and videos** (e.g. a recorded "police" video call) are converted with ffmpeg and transcribed by Muse Voice first: the model can't judge audio it can't read. Images go straight into the Muse Spark call as image input. Account and phone numbers in the text are spotted and flagged to the model.
 3. Muse Spark gets the content wrapped as **data** (prompt-injection guard) and **decides which tools to call**: `check_link` for URLs, `decode_qris` when it sees a QR code, `safe_word_check` for "it's me, your kid, send money". It then returns a verdict JSON (`AMAN` / `WASPADA` / `BAHAYA`).
 4. The verdict is validated against a schema (repaired once, otherwise it falls back to WASPADA). Deterministic safety rules then apply: an APK is always BAHAYA (with "already installed? turn off internet, call the bank"), a Safe Browsing hit is BAHAYA, a QRIS with a bad checksum is never AMAN, a low-confidence AMAN becomes WASPADA, never "100% aman", and no "jangan khawatir" on a warning. **Every change is recorded** ("Muse said WASPADA, rule `apk_selalu_bahaya` made it BAHAYA") and shown on the test page.
-5. On **BAHAYA** the guardian is alerted *first*, and the reply then says exactly what happened: alerted, already alerted a few minutes ago, delivery failed (call them yourself), or no guardian registered yet (here's how).
-6. Every reply ends with what actually ran, for example `🔎 Dicek dengan: Muse Voice → Muse Spark → cek link → aturan keamanan`.
-7. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC → police steps and an urgent guardian alert (no cooldown).
+5. **Official contacts are added by code, not the model.** Muse outputs a `scam_type` (fake_police, impersonation, bank_otp, investment, pinjol, other) and whether money was already sent. The code then appends contacts from the verified list in [`app/agent/contacts.py`](app/agent/contacts.py): 110, IASC, OJK 157, aduannomor.id, Halo BCA. Any other number in the model's text is removed, so a phone number can never be hallucinated.
+6. On **BAHAYA** the guardian is alerted *first*, and the reply then says exactly what happened: "Sudah kami kabari: Hans", already told a few minutes ago, delivery failed (call them yourself), or "Belum ada wali terdaftar, ketik /daftar_wali".
+7. Every reply ends with what actually ran, for example `🔎 Dicek dengan: Muse Voice → Muse Spark → cek link → aturan keamanan`.
+8. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
 
 ## Channels
 

@@ -1,14 +1,14 @@
 # Research coverage
 
-How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. The 9 false-positive controls added afterwards (everyday AMAN and borderline WASPADA messages) also pass.
+How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
 
 ## 1. Top scam types (IASC ranking)
 
 | # | Modus | How Cek Dulu handles it | Category | Live test(s) |
 |---|---|---|---|---|
-| 1 | Belanja online | Prompt pattern (too-cheap promo, DP to a personal account, "jangan lewat aplikasi"). Account numbers are spotted and the bot points to **cekrekening.id** | `belanja_online` | `belanja_online` (must mention cekrekening), `toko_online_palsu_chat.png` (screenshot, must mention cekrekening) |
+| 1 | Belanja online | Prompt pattern (too-cheap promo, DP to a personal account, "jangan lewat aplikasi"). Account numbers are spotted and flagged to the model (a transfer to a personal account is a red flag) | `belanja_online` | `belanja_online`, `toko_online_palsu_chat.png` (screenshot) |
 | 2 | Fake call / impersonation | Voice notes **and videos** are transcribed. `safe_word_check` runs for "family" requests. Advice is to call back on the old number. Guardian is alerted | `minta_pulsa`, `cs_bank_palsu`, `aparat_palsu` | `pulsa_*`, `cs_bank_*`, `voice_kecelakaan.ogg`, `voice_polisi_gadungan.ogg`, `video_polisi_gadungan.mp4` |
-| 3 | Investasi bodong (incl. AI robot trading, fake gold sites) | Prompt pattern. Link check flags Antam/logammulia lookalikes. Bot points to OJK 157 | `investasi` | `investasi_1`, `investasi_ai_robot` (must mention cekrekening), `emas_palsu` |
+| 3 | Investasi bodong (incl. AI robot trading, fake gold sites) | Prompt pattern. Link check flags Antam/logammulia lookalikes. Code appends Kontak OJK 157 | `investasi` | `investasi_1`, `investasi_ai_robot` (must show WA 081-157-157-157), `emas_palsu` |
 | 4 | Lowongan / part-time job | Prompt pattern (like/task, then "deposit for premium tasks") | `lowongan_kerja` | `investasi_kerja` |
 | 5 | Media sosial (hacked account) | Treated as impersonation ("akun lama kena hack, pinjam dulu") + safe-word check | `minta_pulsa` | `akun_dibajak` |
 | 6 | Hadiah / undian palsu | Prompt pattern (pay tax/admin first) | `hadiah_palsu` | `hadiah`, `hadiah_bri`, `phishing_undian` |
@@ -30,19 +30,20 @@ In the README "Why it matters" section, with the research's caveat that IASC cou
 
 ## 4. Official reporting channels
 
-These are in the system prompt and the follow-up prompt as the **only** numbers and sites the bot may give (it's told never to invent others):
+All contacts live in [`app/agent/contacts.py`](app/agent/contacts.py). **The model never writes a contact.** It outputs `scam_type` and `money_sent`, and the code appends the matching contacts. Any other phone, short-code or account number in model text is removed (rule `nomor_tidak_resmi_dihapus`), and so is any in follow-up answers. A test checks that no reply contains a number outside the file.
 
-| Channel | When the bot uses it |
+| scam_type / situation | Contacts appended |
 |---|---|
-| iasc.ojk.go.id | After a transfer: report fast. The link checker flags fake IASC sites |
-| Bank call center (number on the back of the ATM card; Halo BCA 1500888) | First step after a transfer, OTP or installed APK |
-| Police report (SPKT) / 110 | After a transfer; fake police calls |
-| cekrekening.id | Any account number in a transfer request (spotted automatically) |
-| aduannomor.id | Scammer phone numbers (spotted automatically) |
-| aduankonten.id | Hoaxes |
-| Kontak OJK 157 / WA 081157157157 | Checking investment or financial entities |
+| `fake_police`, `impersonation` | Polisi **110** (plus the money-sent contacts if a transfer happened) |
+| `bank_otp`, or `money_sent` for any type (incl. "aku sudah transfer" follow-ups) | Halo BCA **1500888** (other banks: number on the back of the ATM card), then **https://iasc.ojk.go.id**, ideally within 12 hours so funds can be blocked |
+| `investment`, `pinjol` | Kontak OJK **157** / WA **081-157-157-157** |
+| A phone number in a BAHAYA message | **https://aduannomor.id** |
 
-**Not used, on purpose:** Mandiri 14000 and BRI 1500017 (unconfirmed in the research), SIPASTI and patrolisiber.id (not opened).
+AMAN verdicts get no contacts.
+
+**Not used, on purpose:**
+- Other banks' call centers (Mandiri 14000, BRI 1500017, …): not verified yet (TODO in `contacts.py`).
+- cekrekening.id, aduankonten.id, SIPASTI, patrolisiber.id: not on the verified list.
 
 ## 5. Demo and test coverage
 
@@ -50,7 +51,7 @@ These are in the system prompt and the follow-up prompt as the **only** numbers 
 |---|---|
 | Fake call / family impersonation: voice → ASR → verdict + call-back + guardian alert | ✅ voice + video, safe-word check, guardian alert (and an emergency alert if the parent says they already paid) |
 | APK: instant bahaya + "already installed?" steps | ✅ |
-| Belanja online: screenshot + account → cekrekening.id | ✅ |
+| Belanja online: screenshot + account number | ✅ (account flagged; cekrekening.id left out until verified) |
 | QRIS swap | ✅ shop + mosque |
 | Phishing / hadiah palsu / investment, lookalike domains | ✅ |
 | AMAN controls (real J&T update, family chat, legit bank promo) | ✅ `aman_jnt_asli`, `aman_keluarga`, `aman_promo_bank`, `aman_ojk_info`, `aman_arisan`, `aman_ultah`, plus strict AMAN `aman_posyandu`, `aman_cucu_sampai`, `aman_driver_gofood`, and `aman_tagihan_pln`, `aman_otp_sendiri` |
