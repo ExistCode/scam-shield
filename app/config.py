@@ -38,6 +38,10 @@ class Settings:
     wonder_reasoning_effort: str = field(default_factory=lambda: _env("MUSE_ESCALATION_REASONING_EFFORT", "low"))
     wonder_threshold: float = field(default_factory=lambda: float(_env("MUSE_ESCALATION_THRESHOLD", "0.6")))
     wonder_timeout: float = field(default_factory=lambda: float(_env("MUSE_ESCALATION_TIMEOUT", "30")))
+    # Videos already spend time on ffmpeg + Muse Voice, so Wonder gets less time there.
+    wonder_video_timeout: float = field(default_factory=lambda: float(_env("MUSE_ESCALATION_VIDEO_TIMEOUT", "12")))
+    # Hard limit for one check in the chat channels; after this the user gets a WASPADA "hati-hati dulu" reply.
+    check_deadline: float = field(default_factory=lambda: float(_env("CHECK_DEADLINE_SECONDS", "30")))
     fireworks_api_key: str = field(default_factory=lambda: _env("FIREWORKS_API_KEY"))
     fireworks_base_url: str = field(
         default_factory=lambda: _env("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1")

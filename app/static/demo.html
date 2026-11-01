@@ -117,7 +117,7 @@
     <div class="avatar" aria-hidden="true"><svg><use href="#i-shield"/></svg></div>
     <div class="who">
       <div class="name">Ronda <span class="tag">Ronda demo</span></div>
-      <div class="sub" id="status" aria-live="polite">online</div>
+      <div class="sub" id="status" aria-live="polite">bot</div>
     </div>
     <div class="actions" aria-hidden="true"><svg><use href="#i-video"/></svg><svg><use href="#i-call"/></svg><svg><use href="#i-dots"/></svg></div>
   </header>
@@ -219,7 +219,7 @@ async function check(payload, outMsg) {
     });
   } catch (e) {
     working.querySelector(".body").innerHTML = `<span class="err">Maaf, gagal mengecek: ${esc(e.message)}</span>`;
-  } finally { setStatus("online"); }
+  } finally { setStatus("bot"); }
 }
 
 function sendText() {

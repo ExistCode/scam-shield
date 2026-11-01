@@ -52,7 +52,9 @@ def format_reply(v: Verdict, guardian: str = "", footer: str = "", profile: dict
 
 def working_text(input_type: str) -> str:
     """Shown right away while the check runs (Telegram edits it into the verdict)."""
-    if input_type in ("audio", "video"):
+    if input_type == "video":
+        return "🎬 Lagi nonton videonya…"
+    if input_type == "audio":
         return "🎧 Sedang mendengarkan dan mengecek pesannya…"
     if input_type == "image":
         return "🔎 Sedang memeriksa gambarnya…"
@@ -86,24 +88,43 @@ def tools_footer(result: AnalysisResult) -> str:
     return ("🔎 _Dicek dengan: " + " → ".join(steps) + "_") if steps else ""
 
 
-def one_line_reason(v: Verdict, panggilan: str = "") -> str:
-    """First sentence of the verdict reason, without the final period, for the guardian alert."""
-    text = " ".join((v.reason or "").split())
-    first = re.split(r"(?<=[.!?])\s+", text)[0] if text else ""
-    first = re.sub(r"(?i)\bbeliau\b", panggilan or "dia", first)
-    return first.rstrip(" .!?") or "ada tanda-tanda penipuan"
+# What the parent got, in words a family member would use. Keyed by scam_type first, then category.
+ALERT_PHRASE = {
+    "impersonation_family": "chat dari nomor baru yang ngaku keluarga, minta transfer darurat",
+    "minta_pulsa": "chat dari nomor baru yang ngaku keluarga, minta transfer darurat",
+    "fake_police": "telepon atau chat yang ngaku polisi, nakut-nakutin terus minta transfer",
+    "aparat_palsu": "telepon atau chat yang ngaku polisi, nakut-nakutin terus minta transfer",
+    "bank_otp": "chat yang ngaku dari bank, minta kode OTP atau isi data rekening",
+    "cs_bank_palsu": "chat yang ngaku dari bank, minta kode OTP atau isi data rekening",
+    "kurir_apk": "file aplikasi (.apk) yang nyamar jadi resi paket atau undangan",
+    "investasi": "ajakan investasi yang janji untung gede terus minta transfer",
+    "investment": "ajakan investasi yang janji untung gede terus minta transfer",
+    "belanja_online": "tawaran barang murah yang minta transfer ke rekening pribadi",
+    "lowongan_kerja": "tawaran kerja online yang ujung-ujungnya minta deposit",
+    "hadiah_palsu": "kabar menang undian yang minta bayar pajak hadiah dulu",
+    "pinjol": "tawaran pinjaman yang minta biaya admin di depan",
+    "qris_palsu": "QRIS yang nama penerimanya nggak cocok sama tokonya",
+    "hoaks": "pesan berantai yang nyuruh klik link atau kasih data",
+    "lainnya": "pesan yang mencurigakan",
+}
+
+
+def alert_phrase(v: Verdict) -> str:
+    if v.scam_type == "impersonation" and v.category in ("minta_pulsa", "lainnya"):
+        return ALERT_PHRASE["impersonation_family"]
+    return ALERT_PHRASE.get(v.category) if v.category != "lainnya" else \
+        ALERT_PHRASE.get(v.scam_type, ALERT_PHRASE["lainnya"])
 
 
 def guardian_alert_text(guardian: str, panggilan: str, v: Verdict) -> str:
-    """Casual alert to the guardian, by name, about their parent (by the parent's panggilan)."""
-    category = CATEGORY_LABEL.get(v.category, v.category)
+    """Two lines at most, like a family member texting: who, what they got, what to do."""
     g = guardian or "Halo"
     p = panggilan or "keluargamu"
-    if v.money_sent:  # "aku udah transfer": it's no longer "before any transfer"
-        return (f"🚨 {g}, {p} bilang udah terlanjur transfer, kirim kode, atau pasang aplikasi ({category}). "
-                f"Telepon {p} sekarang ya, bantu telepon bank buat blokir, terus lapor secepatnya sebelum 12 jam.")
-    return (f"🔴 {g}, {p} barusan dapet pesan BAHAYA ({category}). Alasannya: {one_line_reason(v, p)}. "
-            f"Telepon {p} sekarang ya, sebelum ada transfer.")
+    phrase = alert_phrase(v) or ALERT_PHRASE["lainnya"]
+    if v.money_sent:  # "aku udah transfer": no longer "before any transfer"
+        return (f"🚨 {g}, {p} bilang udah terlanjur transfer atau kirim kode gara-gara {phrase}.\n"
+                f"Telepon {p} sekarang ya, bantu telepon bank buat blokir.")
+    return f"🔴 {g}, {p} barusan dapet {phrase}. Kayaknya penipuan. Telepon {p} sekarang ya."
 
 
 _BOLD = re.compile(r"\*([^*\n]+)\*")

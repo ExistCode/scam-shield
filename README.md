@@ -195,15 +195,14 @@ Railway sets `RAILWAY_ENVIRONMENT_ID`, which makes the app **fail closed**: a mi
 
 Submit in WhatsApp Manager, category **Utility**, language `id`, name `guardian_alert`:
 
-> 🔴 {{1}}, {{2}} barusan dapet pesan BAHAYA ({{3}}). Alasannya: {{4}}. Telepon {{5}} sekarang ya, sebelum ada transfer. - Ronda
+> 🔴 {{1}}, {{2}} barusan dapet {{3}}. Kayaknya penipuan. Telepon {{4}} sekarang ya. - Ronda
 
 The parameters:
 - `{{1}}` is the guardian's name ("Hans").
-- `{{2}}` and `{{5}}` are the parent's panggilan ("Mama"). It appears twice because WhatsApp templates can't reuse a variable.
-- `{{3}}` is the scam type ("CS bank palsu").
-- `{{4}}` is a one-line reason.
+- `{{2}}` and `{{4}}` are the parent's panggilan ("Mama").
+- `{{3}}` is a natural phrase for the scam type, e.g. "chat dari nomor baru yang ngaku keluarga, minta transfer darurat" (`ALERT_PHRASE` in `app/channels/formatting.py`).
 
-Telegram and the `/wa` demo send the same text without the sign-off. The "already transferred" emergency alert ("🚨 Hans, Mama bilang udah terlanjur transfer…") is free-form text, so it has no template.
+Telegram and `/wa` send the same text without the sign-off. The "already transferred" emergency alert is free-form text, at most 2 lines.
 
 ### Environment variables (names only)
 

@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.agent import followup, persona
-from app.agent.orchestrator import analyze
+from app.agent.orchestrator import analyze_with_deadline
 from app.agent.schema import Input
 from app.api.analyze import MAX_MEDIA, _check_access
 from app.channels import notify
@@ -253,7 +253,7 @@ def process(req: SendReq) -> None:
         if case_id is None:
             return
         push(pid, working_text(inp.type))
-        result = analyze(inp)
+        result = analyze_with_deadline(inp)
         repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
         inp.media_bytes = None
 

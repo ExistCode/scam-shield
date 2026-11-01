@@ -22,7 +22,8 @@ class Provider:
     supports_images: bool
     reasoning_effort: str = ""
 
-    def chat(self, messages: list, tools: list | None = None, response_format: dict | None = None):
+    def chat(self, messages: list, tools: list | None = None, response_format: dict | None = None,
+             timeout: float | None = None):
         kwargs: dict = {"model": self.model, "messages": messages}
         if tools:
             kwargs["tools"] = tools
@@ -31,7 +32,8 @@ class Provider:
             kwargs["response_format"] = response_format
         if self.supports_reasoning_effort and self.reasoning_effort:
             kwargs["reasoning_effort"] = self.reasoning_effort
-        return self.client.chat.completions.create(**kwargs)
+        client = self.client.with_options(timeout=timeout) if timeout else self.client
+        return client.chat.completions.create(**kwargs)
 
 
 @lru_cache(maxsize=4)

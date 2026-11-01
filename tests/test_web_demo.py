@@ -11,7 +11,7 @@ BAHAYA = Verdict(risk="BAHAYA", category="minta_pulsa", confidence=0.95, scam_ty
 
 
 def _client(monkeypatch):
-    monkeypatch.setattr(web_demo, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="meta",
+    monkeypatch.setattr(web_demo, "analyze_with_deadline", lambda inp: AnalysisResult(verdict=BAHAYA, provider="meta",
                                                                         model="muse-spark-1.3"))
     return TestClient(app)
 
@@ -41,8 +41,8 @@ def test_onboarding_link_verdict_and_guardian_phone(monkeypatch):
     assert parent[-2].startswith("🔎 Sedang dicek")
     assert "Hans udah aku kabarin ya, Mama." in parent[-1] and "Ibu/Bapak" not in parent[-1]
     alert = _inbox(c, s, "g:")[-1]
-    assert alert == ("🔴 Hans, Mama barusan dapet pesan BAHAYA (mengaku keluarga/teman minta uang). "
-                     "Alasannya: Nomor baru minta transfer darurat. Telepon Mama sekarang ya, sebelum ada transfer.")
+    assert alert == ("🔴 Hans, Mama barusan dapet chat dari nomor baru yang ngaku keluarga, minta transfer darurat. "
+                     "Kayaknya penipuan. Telepon Mama sekarang ya.")
 
 
 def test_setup_prepares_a_clean_demo(monkeypatch):

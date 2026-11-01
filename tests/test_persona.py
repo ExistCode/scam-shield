@@ -35,7 +35,7 @@ def test_verdict_reply_is_personal(monkeypatch):
     class P:
         name, model, supports_images = "meta", "muse-spark-1.3", False
 
-        def chat(self, messages, tools=None, response_format=None):
+        def chat(self, messages, tools=None, response_format=None, **kw):
             calls.append(messages)
             msg = SimpleNamespace(content=FORMAL.model_dump_json(), tool_calls=None)
             return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
@@ -88,7 +88,7 @@ def test_telegram_onboarding_and_personal_verdict(monkeypatch):
         seen_profiles.append(inp.profile)
         return AnalysisResult(verdict=FORMAL.model_copy(update={"contacts": []}), provider="meta", model="muse-spark-1.3")
 
-    monkeypatch.setattr(telegram_webhook, "analyze", fake_analyze)
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", fake_analyze)
     MAMA, HANS = 5581001, 5581002
     uid = iter(range(7000, 8000))
     client = TestClient(app)

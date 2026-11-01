@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from app.agent import followup, persona
-from app.agent.orchestrator import analyze
+from app.agent.orchestrator import analyze_with_deadline
 from app.agent.schema import Input
 from app.channels import notify, whatsapp_media, whatsapp_sender
 from app.channels.formatting import format_reply, guardian_line, tools_footer, working_text
@@ -271,7 +271,7 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         except Exception:
             pass
 
-        result = analyze(inp)
+        result = analyze_with_deadline(inp)
         repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
         inp.media_bytes = None  # drop media as soon as analysis is done
 

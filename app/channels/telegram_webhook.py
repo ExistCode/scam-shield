@@ -14,7 +14,7 @@ from collections import OrderedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from app.agent import followup, persona
-from app.agent.orchestrator import analyze
+from app.agent.orchestrator import analyze_with_deadline
 from app.agent.schema import Input
 from app.channels import notify, telegram_bot
 from app.channels.formatting import format_reply, guardian_line, tools_footer, trace_html, working_text
@@ -376,7 +376,7 @@ def process_update(update: dict) -> None:
                                        channel_message_id=f"tg:{chat_id}:{mid}")
             if case_id is None:
                 return
-            result = analyze(inp)
+            result = analyze_with_deadline(inp)
             repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
             inp.media_bytes = None
 

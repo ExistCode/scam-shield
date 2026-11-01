@@ -102,7 +102,7 @@ def _fake_model(monkeypatch, **kw):
     class P:
         name, model, supports_images = "meta", "muse-spark-1.3", False
 
-        def chat(self, messages, tools=None, response_format=None):
+        def chat(self, messages, tools=None, response_format=None, **kw):
             msg = SimpleNamespace(content=json.dumps(base), tool_calls=None)
             return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
 
@@ -116,7 +116,7 @@ def test_reported_count_line_written_by_code(monkeypatch, live_mode):
     r = orchestrator.analyze(Input(type="text", text="Menang undian! WA admin 0857-1122-3344"))
     out = format_reply(r.verdict, footer=tools_footer(r))
     assert "ℹ️ Nomor ini sudah dilaporkan 12x di AduanNomor.id (Komdigi)." in out
-    assert "Laporkan nomor 0857-1122-3344 di aduannomor.id (situs resmi Komdigi)." in out
+    assert "Laporin nomornya di aduannomor.id ya" in out and r.verdict.scam_phone_numbers == ["0857-1122-3344"]
     assert "cek AduanNomor" in out and orchestrator.details(r)["aduannomor"]["0857-1122-3344"]["reported_count"] == 12
 
 
@@ -127,7 +127,7 @@ def test_no_line_when_zero_or_failed(monkeypatch, live_mode, response, exc):
     r = orchestrator.analyze(Input(type="text", text="Menang undian! WA admin 0857-1122-3344"))
     out = format_reply(r.verdict)
     assert "AduanNomor.id (Komdigi)" not in out and "dilaporkan" not in out
-    assert "Laporkan nomor 0857-1122-3344 di aduannomor.id" in out  # the fallback step is always there
+    assert "Laporin nomornya di aduannomor.id ya" in out  # the fallback step is always there
 
 
 def test_aman_never_looks_up(monkeypatch, live_mode):
@@ -152,7 +152,7 @@ def test_phone_and_account_together_stay_within_4_steps(monkeypatch):
     _fake_model(monkeypatch, category="belanja_online")
     r = orchestrator.analyze(Input(type="text", text="Transfer DP ke BCA 1234567890 a.n. Siska. Info WA 0857-1122-3344"))
     assert len(r.verdict.next_steps) == 4
-    assert r.verdict.next_steps[-2].startswith("Laporkan nomor 0857-1122-3344")
+    assert r.verdict.next_steps[-2] == "Laporin nomornya di aduannomor.id ya" and r.verdict.scam_phone_numbers == ["0857-1122-3344"]
     assert r.verdict.next_steps[-1].startswith("Cek dulu rekening 1234567890")
 
 

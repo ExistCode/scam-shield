@@ -320,7 +320,7 @@ function buildPhone(el, { name, guardian }) {
       <svg viewBox="0 0 24 24"><path d="M16 4h-2V2h-4v2H8a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg></span></div>
     <div class="header">${ico("back")}
       <div class="avatar">${ico("shield")}</div>
-      <div class="who"><div class="name">${name} ${ico("verified")}</div><div class="sub">online</div></div>
+      <div class="who"><div class="name">${name} ${ico("verified")}</div><div class="sub">bot</div></div>
       <div class="actions">${ico("video")}${ico("call")}${ico("dots")}</div></div>
     <div class="chat"><div class="chip">Hari ini</div>
       <div class="chip info">🛡️ Ronda membantu mengecek pesan mencurigakan. Teruskan pesan, foto, atau voice note ke sini.</div></div>
@@ -369,7 +369,7 @@ document.addEventListener("click", (e) => {
     a.onended = () => { btn.innerHTML = ico("play"); bars.forEach((b) => b.classList.remove("on")); };
   } else { a.pause(); btn.innerHTML = ico("play"); }
 });
-function setTyping(phone, on) { phone.sub.textContent = on ? "mengetik…" : "online"; }
+function setTyping(phone, on) { phone.sub.textContent = on ? "mengetik…" : "bot"; }
 function markRead(phone) { phone.pendingTicks.forEach((t) => t.classList.add("read")); phone.pendingTicks = []; }
 
 // ------------------------------------------------------------------ Mama's phone: chat list -> contact chat -> forward to Ronda
@@ -404,9 +404,9 @@ const CONTACTS_TEMPLATE = [
     { text: "boleh tolong kirimin 6 digit kodenya kak? penting bgt, makasih ya kak 🙏🙏", time: "20:47" } ] },
   // Prize scam: official-sounding event, "pajak hadiah" first, deadline, HANGUS (§6)
   { id: "undian", name: "+62 813-5520-7781", about: "~Pusat Undian BRImo", color: "#8696a0", time: "20:12", unread: 3, msgs: [
-    { text: "Selamat siang Bapak/Ibu nasabah BRI yang terhormat 🙏", time: "20:10" },
-    { text: "Kami dari Tim Pusat Undian *BRImo FSTVL 2026* menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar *Rp100.000.000* (Seratus Juta Rupiah) 🎉🎉\n\nNo. Undian: BRI-26-0847\nKode Pemenang: FST-7731", time: "20:11" },
-    { text: "Untuk proses pencairan hadiah, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 sesuai ketentuan yang berlaku dan wajib dibayarkan terlebih dahulu.\n\nSilahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", time: "20:12" } ] },
+    { text: "SELAMAT!!🎉🎉 Bpk/Ibu Nasabah BRI yth.\nNOMOR ANDA TERPILIH sbg pemenang ke-2 program *UNDIAN BRImo FSTVL 2026* dgn hadiah Uang Tunai Rp.100.000.000,- (seratus juta rupiah) 💰💰\n\nNo Undian : BRI-26/0847\nKode Pemenang : FST7731", time: "20:10" },
+    { text: "Utk pencairan hadiah, pemenang WAJIB membayar pajak hadiah 1,5% = Rp.1.500.000 terlebih dahulu sesuai ketentuan yg berlaku. Silahkan hubungi ADMIN kami di WA : 0812-0000-1234 (Bpk. Hendra)", time: "20:11" },
+    { text: "Batas konfirmasi hari ini jam 17.00 WIB, jika tdk ada konfirmasi hadiah dianggap HANGUS ❌❌\n\nTTD\nPimpinan Undian BRI Pusat", time: "20:12" } ] },
   // Opener that tests whether the number is alive (§4, quoted by detik) -> WASPADA, "jangan dibalas"
   { id: "kontak", name: "+62 838-6602-1175", color: "#8696a0", time: "19:58", unread: 1, msgs: [
     { text: "Hai, aku menemukan kontakmu disimpan di kontakku, bisa ingatkan aku di mana kita berbincang sebelumnya?", time: "19:58" } ] },
@@ -679,7 +679,7 @@ const SCENARIOS = {
   qris_infaq: async () => sendBlob(await asset("qris_kotak_infaq.png"), { type: "image", caption: "Ini QRIS di kotak infaq masjid, mau sedekah", forwarded: false }),
   resi: async () => sendBlob(await asset("resi_palsu_chat.png"), { type: "image" }),
   nomor_baru: () => sendText("Ma ini aku, ganti nomor ya. HP lama jatuh ke got 😭\nMa aku lagi butuh bgt buat bayar kos sama praktikum, bisa transfer 2jt dulu ga? minggu depan aku ganti\nke rek temenku aja ya Ma, BCA 5271093841 a.n. Rizky. jangan bilang Papa dulu yaa", true),
-  undian: () => sendText("Kami dari Tim Pusat Undian BRImo FSTVL 2026 menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar Rp100.000.000 🎉 Untuk pencairan, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 yang wajib dibayarkan terlebih dahulu. Silahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", true),
+  undian: () => sendText("SELAMAT!!🎉🎉 Bpk/Ibu Nasabah BRI yth.\nNOMOR ANDA TERPILIH sbg pemenang ke-2 program *UNDIAN BRImo FSTVL 2026* dgn hadiah Uang Tunai Rp.100.000.000,- (seratus juta rupiah) 💰💰\n\nNo Undian : BRI-26/0847\nKode Pemenang : FST7731\n\nUtk pencairan hadiah, pemenang WAJIB membayar pajak hadiah 1,5% = Rp.1.500.000 terlebih dahulu sesuai ketentuan yg berlaku. Silahkan hubungi ADMIN kami di WA : 0812-0000-1234 (Bpk. Hendra)\n\nBatas konfirmasi hari ini jam 17.00 WIB, jika tdk ada konfirmasi hadiah dianggap HANGUS ❌❌\n\nTTD\nPimpinan Undian BRI Pusat", true),
   arisan: () => sendText("Ibu-ibu, arisan bulan ini di rumah Bu Ani hari Sabtu jam 4 sore ya. Jangan lupa bawa kue 🙏", true),
 };
 document.querySelectorAll("[data-scn]").forEach((b) => b.addEventListener("click", () => { show("ronda"); SCENARIOS[b.dataset.scn](); }));

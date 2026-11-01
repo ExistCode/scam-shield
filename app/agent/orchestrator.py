@@ -17,6 +17,8 @@ import json
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 
 from openai import APIError, BadRequestError
 from pydantic import ValidationError
@@ -266,8 +268,9 @@ def _parse_verdict(content: str | None) -> Verdict | None:
         return None
 
 
-def _chat_json(provider: Provider, messages: list):
+def _chat_json(provider: Provider, messages: list, timeout: float | None = None):
     """Final structured call; uses json_schema if the provider accepts it."""
+    extra = {"timeout": timeout} if timeout else {}
     try:
         return provider.chat(
             messages,
@@ -275,9 +278,10 @@ def _chat_json(provider: Provider, messages: list):
                 "type": "json_schema",
                 "json_schema": {"name": "verdict", "schema": VERDICT_JSON_SCHEMA, "strict": True},
             },
+            **extra,
         )
     except BadRequestError:
-        return provider.chat(messages, response_format={"type": "json_object"})
+        return provider.chat(messages, response_format={"type": "json_object"}, **extra)
 
 
 def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: AnalysisResult) -> Verdict | None:
@@ -347,11 +351,13 @@ def _flatten_tools(messages: list) -> list:
 def _escalate(inp: Input, result: AnalysisResult, conversation: list) -> Verdict | None:
     """Final verdict from the escalation model, on the same content and tool results. No tools re-run."""
     wonder = get_provider("wonder")
+    timeout = settings.wonder_video_timeout if inp.type == "video" else None  # videos are already slow
     msgs = list(conversation) + [{"role": "user", "content": ESCALATION_PROMPT}]
     try:
-        resp = _chat_json(wonder, msgs)
+        resp = _chat_json(wonder, msgs, timeout=timeout)
     except BadRequestError:
-        resp = _chat_json(wonder, _flatten_tools(conversation) + [{"role": "user", "content": ESCALATION_PROMPT}])
+        resp = _chat_json(wonder, _flatten_tools(conversation) + [{"role": "user", "content": ESCALATION_PROMPT}],
+                          timeout=timeout)
     v = _parse_verdict(resp.choices[0].message.content)
     if v:
         result.provider, result.model = wonder.name, wonder.model
@@ -624,6 +630,36 @@ def trace(result: AnalysisResult) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- entry point
+
+_deadline_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="check")
+
+
+def timeout_verdict(profile: dict | None) -> Verdict:
+    p = persona.panggilan(profile)
+    v = f", {p}" if p else ""
+    return Verdict(
+        risk="WASPADA", category="lainnya", confidence=0.3,
+        reason="Ngeceknya kelamaan, jadi aku belum bisa mastiin.",
+        next_steps=["Jangan transfer atau kirim kode apa pun dulu.", "Telepon balik orangnya lewat nomor lama yang tersimpan.",
+                    "Coba terusin lagi sebentar lagi ya."],
+        alert_guardian=False,
+        reply_text=f"Maaf{v}, aku belum selesai ngeceknya. Hati-hati dulu ya.",
+    )
+
+
+def analyze_with_deadline(inp: Input, seconds: float | None = None) -> AnalysisResult:
+    """analyze() with a hard deadline for chat channels. On timeout the user gets a WASPADA "hati-hati dulu"
+    reply right away; the late check keeps running in the background and is discarded."""
+    seconds = seconds or settings.check_deadline
+    future = _deadline_pool.submit(analyze, inp)
+    try:
+        return future.result(timeout=seconds)
+    except FutureTimeout:
+        log.warning("check timed out after %.0fs (type=%s)", seconds, inp.type)
+        return AnalysisResult(verdict=timeout_verdict(inp.profile), tools_used=["timeout"], provider="timeout",
+                              model="", latency_ms=int(seconds * 1000),
+                              overrides=[{"rule": "batas_waktu", "field": "risk", "from": None, "to": "WASPADA"}])
+
 
 def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
     t0 = time.monotonic()

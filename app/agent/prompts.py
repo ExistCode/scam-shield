@@ -3,7 +3,7 @@ KONTAK RESMI
 - JANGAN PERNAH menulis nomor telepon, nomor WhatsApp, nomor rekening, atau alamat situs apa pun \
   di reply_text, reason, atau next_steps. Sistem menambahkan kontak resmi yang benar secara otomatis \
   berdasarkan scam_type dan money_sent.
-- Di next_steps cukup tulis tindakannya, misalnya "Telepon call center bank Anda untuk blokir rekening.", \
+- Di next_steps cukup tulis tindakannya, misalnya "Telepon call center bank buat blokir rekening.", \
   "Tutup telepon, lalu lapor ke polisi.", "Laporkan ke OJK secepatnya."
 - Sudah terlanjur transfer / kirim OTP: langkah pertama telepon bank SEGERA, lalu lapor secepatnya \
   (kurang dari 12 jam) supaya dana bisa diblokir.

@@ -55,7 +55,7 @@ def test_guardian_link_and_alert(client, monkeypatch):
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
-    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
 
     uid = iter(range(1000, 2000))
     PARENT, CHILD = 5550001, 5550002
@@ -80,8 +80,8 @@ def test_guardian_link_and_alert(client, monkeypatch):
 
     post(PARENT, "Paket Anda tertahan, install Cek_Resi.apk")
     assert any(c == str(PARENT) and "*BAHAYA*" in t for c, t in sent)
-    alerts = [t for c, t in sent if c == str(CHILD) and "barusan dapet pesan BAHAYA" in t]
-    assert len(alerts) == 1 and alerts[0].startswith("🔴 Hans, Sri barusan dapet pesan BAHAYA")
+    alerts = [t for c, t in sent if c == str(CHILD) and "Kayaknya penipuan" in t]
+    assert len(alerts) == 1 and alerts[0].startswith("🔴 Hans, Sri barusan dapet file aplikasi (.apk)")
 
     post(PARENT, "/status")
     assert "Hans" in sent[-1][1]
@@ -91,7 +91,7 @@ def test_first_message_gets_verdict_before_intro(client, monkeypatch):
     sent = []
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append(text))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
-    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     upd = {"update_id": 9001, "message": {"message_id": 9002, "chat": {"id": 5559999, "type": "private"},
            "from": {"id": 5559999, "first_name": "Ibu"}, "text": "Paket tertahan, buka aplikasi ini"}}
     client.post("/telegram/webhook", json=upd, headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
@@ -132,7 +132,7 @@ def test_followup_answered_in_context(client, monkeypatch):
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
-    monkeypatch.setattr(telegram_webhook, "analyze",
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline",
                         lambda inp: analyzed.append(inp.text) or AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     PARENT, CHILD = 5561001, 5561002
     uid = iter(range(3000, 4000))
@@ -194,7 +194,7 @@ def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
-    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     PARENT, CHILD = 5571001, 5571002
     uid = iter(range(5000, 6000))
 
@@ -260,7 +260,7 @@ def test_detail_button_and_trace(client, monkeypatch):
         escalation={"reason": "low_confidence", "spark": {"risk": "WASPADA", "category": "lainnya",
                                                           "confidence": 0.55, "model": "muse-spark-1.3"},
                     "wonder": {"risk": "BAHAYA", "category": "kurir_apk", "confidence": 0.93}})
-    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: result)
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", lambda inp: result)
 
     OWNER, OTHER = 5591001, 5591002
     upd = {"update_id": 9901, "message": {"message_id": 77, "chat": {"id": OWNER, "type": "private"},
@@ -308,36 +308,47 @@ def test_trace_without_tools_or_overrides():
 
 # --------------------------------------------------------------------------- guardian alert wording
 
+from app.channels.formatting import ALERT_PHRASE, CATEGORY_LABEL, alert_phrase, guardian_alert_text  # noqa: E402
+
+CATEGORIES = list(CATEGORY_LABEL)
+
+
+@pytest.mark.parametrize("category", CATEGORIES)
 @pytest.mark.parametrize("money_sent", [False, True])
-def test_guardian_alert_is_casual_and_named(money_sent):
-    from app.channels.formatting import guardian_alert_text
-    v = BAHAYA.model_copy(update={"category": "cs_bank_palsu", "money_sent": money_sent,
-                                  "reason": "Bank asli nggak pernah minta OTP lewat chat. Abaikan aja ya, beliau aman kalau nggak kirim kode."})
+def test_guardian_alert_is_natural(category, money_sent):
+    v = BAHAYA.model_copy(update={"category": category, "money_sent": money_sent,
+                                  "reason": "Beliau dapat pesan. Mohon dicek."})
     text = guardian_alert_text("Hans", "Mama", v)
-    for banned in ("Cek Dulu", "Mohon", "beliau"):
+    assert len(text.splitlines()) <= 2, text
+    for banned in ("Cek Dulu", "Mohon", "beliau", "Alasannya", "BAHAYA ("):
         assert banned.lower() not in text.lower(), (banned, text)
-    if money_sent:
-        assert text.startswith("🚨 Hans, Mama bilang udah terlanjur transfer")
-    else:
-        assert text == ("🔴 Hans, Mama barusan dapet pesan BAHAYA (CS bank palsu). "
-                        "Alasannya: Bank asli nggak pernah minta OTP lewat chat. "
-                        "Telepon Mama sekarang ya, sebelum ada transfer.")
+    for label in CATEGORY_LABEL.values():  # no "(CS bank palsu)" style labels
+        assert f"({label})" not in text, text
+    assert not any(f"({key})" in text for key in CATEGORY_LABEL), text
+    assert not any(key in text for key in CATEGORY_LABEL if "_" in key), text  # no code-style keys
+    assert "Hans" in text and "Telepon Mama sekarang ya" in text
 
 
-def test_guardian_alert_never_says_beliau_even_if_the_reason_does():
-    from app.channels.formatting import guardian_alert_text
-    v = BAHAYA.model_copy(update={"reason": "Pesan ini minta beliau transfer ke rekening pribadi."})
-    text = guardian_alert_text("Hans", "Mama", v)
-    assert "beliau" not in text and "minta Mama transfer" in text
+def test_guardian_alert_exact_format():
+    v = BAHAYA.model_copy(update={"category": "minta_pulsa", "scam_type": "impersonation"})
+    assert guardian_alert_text("Hans", "Mama", v) == (
+        "🔴 Hans, Mama barusan dapet chat dari nomor baru yang ngaku keluarga, minta transfer darurat. "
+        "Kayaknya penipuan. Telepon Mama sekarang ya.")
+    v = v.model_copy(update={"money_sent": True})
+    assert guardian_alert_text("Hans", "Mama", v) == (
+        "🚨 Hans, Mama bilang udah terlanjur transfer atau kirim kode gara-gara chat dari nomor baru yang ngaku "
+        "keluarga, minta transfer darurat.\nTelepon Mama sekarang ya, bantu telepon bank buat blokir.")
+
+
+def test_every_category_has_a_phrase():
+    for c in CATEGORIES:
+        assert alert_phrase(BAHAYA.model_copy(update={"category": c, "scam_type": "other"})) in ALERT_PHRASE.values()
 
 
 def test_whatsapp_guardian_template_params(monkeypatch):
     from app.channels import whatsapp_sender
     posted = []
     monkeypatch.setattr(whatsapp_sender, "_post", lambda payload: posted.append(payload) or {})
-    whatsapp_sender.send_guardian_alert("6281200000000", "Hans", "Mama",
-                                        BAHAYA.model_copy(update={"reason": "Ada file APK."}))
+    whatsapp_sender.send_guardian_alert("6281200000000", "Hans", "Mama", BAHAYA)
     params = [p["text"] for p in posted[0]["template"]["components"][0]["parameters"]]
-    assert params == ["Hans", "Mama", "aplikasi kurir palsu (APK)", "Ada file APK", "Mama"]
-    for p in params:
-        assert not any(b in p for b in ("Cek Dulu", "Mohon", "beliau"))
+    assert params == ["Hans", "Mama", "file aplikasi (.apk) yang nyamar jadi resi paket atau undangan", "Mama"]

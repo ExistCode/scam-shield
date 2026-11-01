@@ -46,7 +46,7 @@ def prompt_block(profile: dict | None) -> str:
                      f'"Bu", "Pak", "Anda", atau sapaan lain. Jangan gabungkan sapaan.')
     else:
         lines.append('- Panggilan pengguna belum diketahui: JANGAN pakai sapaan apa pun (tanpa "Ibu/Bapak", '
-                     f'"Ibu", "Bapak", "Anda"). Kalau perlu kata ganti, pakai "{"Anda" if sopan else "kamu"}".')
+                     '"Ibu", "Bapak", "Anda"). Tulis kalimat tanpa kata ganti orang kedua kalau bisa.')
     if contacts:
         fam = ", ".join(f"{c['name']} ({c.get('relation') or 'keluarga'})" for c in contacts)
         lines.append(f"- Keluarga yang terdaftar: {fam}. Kalau menyuruh cerita atau telepon keluarga, SEBUT "
@@ -84,19 +84,24 @@ def examples(profile: dict | None) -> dict[str, str]:
 # --------------------------------------------------------------------------- address safety net
 
 _ADDR = r"(?:Ibu\s*/\s*Bapak|Bapak\s*/\s*Ibu|Ibu\s+atau\s+Bapak|Bapak\s+atau\s+Ibu)"
+_ANDA = re.compile(r"\bAnda\b")
 
 
 def address(text: str, profile: dict | None) -> str:
-    """Never let "Ibu/Bapak" through: use the chosen panggilan, or drop the vocative if there is none."""
-    if not text or not re.search(_ADDR, text, re.I):
+    """Never let "Ibu/Bapak" or "Anda" through: use the chosen panggilan ("bank Anda" -> "bank Mama"),
+    or drop the vocative / use "kamu" if there is none."""
+    if not text:
         return text
     p = panggilan(profile)
+    text = _ANDA.sub(p or "kamu", text)
+    if not re.search(_ADDR, text, re.I):
+        return text
     if p:
         return re.sub(_ADDR, p, text, flags=re.I)
     out = re.sub(rf",\s*{_ADDR}(?=\s*[.,!?]|\s*$)", "", text, flags=re.I)          # "..., Ibu/Bapak."
     out = re.sub(rf"(^|[.!?]\s+){_ADDR}\s*,\s*(\w)",                                # "Ibu/Bapak, ini..."
                  lambda m: m.group(1) + m.group(2).upper(), out, flags=re.I)
-    return re.sub(_ADDR, "Anda" if is_sopan(profile) else "kamu", out, flags=re.I)
+    return re.sub(_ADDR, "kamu", out, flags=re.I)
 
 
 # --------------------------------------------------------------------------- onboarding

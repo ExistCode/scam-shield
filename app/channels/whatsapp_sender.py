@@ -4,7 +4,7 @@ import logging
 import httpx
 
 from app.agent.schema import Verdict
-from app.channels.formatting import CATEGORY_LABEL, guardian_alert_text, one_line_reason
+from app.channels.formatting import alert_phrase, guardian_alert_text
 from app.config import settings
 
 log = logging.getLogger("cekdulu.wa")
@@ -43,15 +43,13 @@ def mark_read(message_id: str) -> None:
 def send_guardian_alert(guardian_number: str, guardian: str, panggilan: str, v: Verdict) -> dict:
     """Utility template; falls back to free-form text (works inside the 24h window).
 
-    Template body expected (5 params, see README):
-      "🔴 {{1}}, {{2}} barusan dapet pesan BAHAYA ({{3}}). Alasannya: {{4}}. Telepon {{5}} sekarang ya,
-       sebelum ada transfer. - Ronda"
+    Template body expected (4 params, see README):
+      "🔴 {{1}}, {{2}} barusan dapet {{3}}. Kayaknya penipuan. Telepon {{4}} sekarang ya. - Ronda"
     The "already paid" emergency text has no template and is sent free-form.
     """
-    category = CATEGORY_LABEL.get(v.category, v.category)
     if v.money_sent:
         return send_text(guardian_number, guardian_alert_text(guardian, panggilan, v))
-    params = [guardian or "Halo", panggilan or "keluargamu", category, one_line_reason(v, panggilan), panggilan or "keluargamu"]
+    params = [guardian or "Halo", panggilan or "keluargamu", alert_phrase(v), panggilan or "keluargamu"]
     try:
         return _post(
             {

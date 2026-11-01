@@ -43,7 +43,7 @@ ADUAN_NOMOR = {
 HALO_BCA = {
     "name": "Halo BCA",
     "contact": "1500888",
-    "when": "Nasabah BCA: telepon untuk blokir rekening/kartu. Bank lain: telepon nomor di balik kartu ATM Anda.",
+    "when": "Nasabah BCA: telepon untuk blokir rekening/kartu. Bank lain: telepon nomor di balik kartu ATM.",
     "note": "bank lain: nomor di balik kartu ATM",
 }
 
@@ -166,7 +166,7 @@ def account_step(accounts: list[str]) -> str:
 
 def report_step(numbers: list[str]) -> str:
     """The step shown for scammer numbers. Says nothing about who owns the number or where it's from."""
-    return f"Laporkan nomor {', '.join(numbers)} di aduannomor.id (situs resmi Komdigi)."
+    return "Laporin nomornya di aduannomor.id ya"
 
 
 def scrub_numbers(text: str) -> str:

@@ -145,7 +145,7 @@ class FakeProvider:
         self.script = list(script)
         self.calls = []
 
-    def chat(self, messages, tools=None, response_format=None):
+    def chat(self, messages, tools=None, response_format=None, **kw):
         self.calls.append({"messages": list(messages), "tools": tools, "response_format": response_format})
         return self.script.pop(0)
 
@@ -261,7 +261,7 @@ def test_image_falls_back_to_two_step_when_rejected(fake, monkeypatch):
     class P(FakeProvider):
         supports_images = True
 
-        def chat(self, messages, tools=None, response_format=None):
+        def chat(self, messages, tools=None, response_format=None, **kw):
             calls["n"] += 1
             if isinstance(messages[1]["content"], list):
                 raise bad
@@ -352,7 +352,7 @@ def test_webhook_end_to_end_with_guardian(client, monkeypatch):
     sent, alerts = [], []
     monkeypatch.setattr(whatsapp_sender, "send_text", lambda to, body, reply_to=None: sent.append((to, body)))
     monkeypatch.setattr(whatsapp_sender, "send_guardian_alert", lambda g, name, panggilan, v: alerts.append((g, panggilan, v.risk)))
-    monkeypatch.setattr(whatsapp_webhook, "analyze", lambda inp: orchestrator.AnalysisResult(
+    monkeypatch.setattr(whatsapp_webhook, "analyze_with_deadline", lambda inp: orchestrator.AnalysisResult(
         verdict=Verdict.model_validate_json(_verdict_json()), provider="fake", model="fake"))
 
     def post(payload):
@@ -528,7 +528,7 @@ def test_investment_and_pinjol_get_ojk(fake):
         assert "157" in out and "081-157-157-157" in out
 
 
-REPORT = "Laporkan nomor {} di aduannomor.id (situs resmi Komdigi)."
+REPORT = "Laporin nomornya di aduannomor.id ya"
 
 
 @pytest.mark.parametrize("risk", ["BAHAYA", "WASPADA"])
@@ -536,10 +536,10 @@ def test_scam_number_in_text_gets_report_step(fake, risk):
     fake([_resp(_verdict_json(risk=risk, category="hadiah_palsu", scam_type="other",
                               next_steps=["Jangan bayar apa pun.", "Abaikan pesannya.", "Blokir nomornya."]))])
     r = orchestrator.analyze(Input(type="text", text="Menang undian! Hubungi admin WA +62 857-1122-3344"))
-    assert r.verdict.next_steps[-1] == REPORT.format("0857-1122-3344")  # +62 normalized to 08xx
+    assert r.verdict.next_steps[-1] == REPORT and r.verdict.scam_phone_numbers == ["0857-1122-3344"]  # +62 -> 08xx
     assert len(r.verdict.next_steps) == 4  # the model's 3 steps are kept
     out = format_reply(r.verdict)
-    assert "4. Laporkan nomor 0857-1122-3344 di aduannomor.id (situs resmi Komdigi)." in out
+    assert "4. Laporin nomornya di aduannomor.id ya" in out
     assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == []
 
 
@@ -561,7 +561,7 @@ def test_screenshot_number_comes_from_model(fake):
     p = fake([_resp(_verdict_json(category="kurir_apk", scam_type="other", scam_phone_numbers=["+62 857-2231-0098"]))])
     p.supports_images = True
     r = orchestrator.analyze(Input(type="image", media_bytes=b"png", mime="image/png"))
-    assert r.verdict.next_steps[-1] == REPORT.format("0857-2231-0098")
+    assert r.verdict.next_steps[-1] == REPORT and r.verdict.scam_phone_numbers == ["0857-2231-0098"]
 
 
 def test_voice_transcript_number(fake, monkeypatch):
@@ -569,7 +569,7 @@ def test_voice_transcript_number(fake, monkeypatch):
                         lambda b, m=None: {"transcript": "Ini dari Polda, hubungi penyidik di nomor 0812 7777 6666 sekarang"})
     fake([_resp(_verdict_json(category="aparat_palsu", scam_type="fake_police"))])
     r = orchestrator.analyze(Input(type="audio", media_bytes=b"ogg", mime="audio/ogg"))
-    assert REPORT.format("0812-7777-6666") in r.verdict.next_steps
+    assert REPORT in r.verdict.next_steps and r.verdict.scam_phone_numbers == ["0812-7777-6666"]
 
 
 def test_report_step_never_claims_owner_or_location():
@@ -648,7 +648,7 @@ def _named_provider(name, model, verdict_json, calls):
     class P:
         supports_images = True
 
-        def chat(self, messages, tools=None, response_format=None):
+        def chat(self, messages, tools=None, response_format=None, **kw):
             calls.append(name)
             msg = SimpleNamespace(content=verdict_json, tool_calls=None)
             return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
@@ -809,7 +809,7 @@ class _ScriptedProvider:
     def __init__(self, name, model, script, log):
         self.name, self.model, self.script, self.log = name, model, list(script), log
 
-    def chat(self, messages, tools=None, response_format=None):
+    def chat(self, messages, tools=None, response_format=None, **kw):
         self.log.append({"who": self.name, "messages": list(messages), "tools": tools, "response_format": response_format})
         return self.script.pop(0)
 
@@ -884,3 +884,50 @@ def test_apk_installed_step_not_duplicated(fake, model_step):
     fake([_resp(_verdict_json(risk="BAHAYA", category="kurir_apk", next_steps=["Jangan dibuka.", model_step]))])
     r = orchestrator.analyze(Input(type="document", text="[File terlampir: Undangan.apk]"))
     assert r.verdict.next_steps == ["Jangan dibuka.", model_step]
+
+
+# --------------------------------------------------------------------------- deadline, video status, "Anda"
+
+def test_deadline_returns_waspada_fast(monkeypatch):
+    import time as _t
+    monkeypatch.setattr(orchestrator, "analyze", lambda inp: _t.sleep(2) or None)
+    t0 = _t.monotonic()
+    r = orchestrator.analyze_with_deadline(Input(type="video", media_bytes=b"x", profile={"panggilan": "Mama"}), seconds=0.3)
+    assert _t.monotonic() - t0 < 1.0
+    assert r.verdict.risk == "WASPADA" and "Mama" in r.verdict.reply_text and "transfer" in r.verdict.next_steps[0]
+    assert r.tools_used == ["timeout"] and r.overrides[0]["rule"] == "batas_waktu"
+
+
+def test_deadline_passes_through_fast_checks(monkeypatch):
+    sentinel = AnalysisResult(verdict=FALLBACK_VERDICT, provider="meta", model="muse-spark-1.3")
+    monkeypatch.setattr(orchestrator, "analyze", lambda inp: sentinel)
+    assert orchestrator.analyze_with_deadline(Input(type="text", text="x"), seconds=5) is sentinel
+
+
+def test_video_working_text():
+    from app.channels.formatting import working_text
+    assert working_text("video") == "🎬 Lagi nonton videonya…"
+    assert working_text("audio").startswith("🎧")
+
+
+def test_wonder_gets_short_timeout_for_video(monkeypatch):
+    monkeypatch.setattr(orchestrator.transcribe, "transcribe_audio", lambda b, m=None: {"transcript": "Ini Polda, transfer"})
+    log = _install(monkeypatch, [_resp(_verdict_json(category="aparat_palsu", confidence=0.95))],
+                   [_resp(_verdict_json(category="aparat_palsu", confidence=0.97))])
+    seen = []
+    wonder = orchestrator.get_provider("wonder")
+    orig = wonder.chat
+    wonder.chat = lambda *a, **k: seen.append(k.get("timeout")) or orig(*a, **k)
+    orchestrator.analyze(Input(type="video", media_bytes=b"mp4", mime="video/mp4"))
+    assert seen and seen[0] == orchestrator.settings.wonder_video_timeout < orchestrator.settings.wonder_timeout
+
+
+def test_anda_never_reaches_the_reply(fake):
+    from app.channels.formatting import format_reply
+    fake([_resp(_verdict_json(reply_text="Ini penipuan. Jangan diikuti.", reason="Bank Anda tidak pernah minta OTP.",
+                              next_steps=["Telepon call center bank Anda.", "Hapus pesannya."]))])
+    r = orchestrator.analyze(Input(type="text", text="CS BCA minta OTP", profile={"panggilan": "Mama"}))
+    out = format_reply(r.verdict, profile={"panggilan": "Mama"})
+    assert "Anda" not in out and "bank Mama" in out
+    from app.agent import contacts
+    assert all("Anda" not in c["when"] for c in contacts.ALL_CONTACTS)
