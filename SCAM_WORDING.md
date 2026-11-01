@@ -2,6 +2,17 @@
 
 Research for Ronda on 1 Nov 2026: how real scam messages are worded, based on what Indonesian news and bank warnings quote. Verbatim quotes are marked as such. Everything else describes the pattern; few outlets print full messages. Every pattern below has a test case in `tests/cases.yaml`, with made-up numbers and links. All of them pass live against Muse Spark.
 
+**The `/wa` demo uses this wording.** Mama's chat list has one chat per pattern:
+- the invitation APK inside the family group (§2);
+- the courier "foto paket & resi" APK (§2);
+- "Ma ini aku, ganti nomor" with a friend's account (§3);
+- the BRI tariff letter (§1);
+- "salah kirim kode" (§5);
+- the BRImo prize (§6);
+- the "kontakmu" opener (§4).
+
+Live on Muse Spark, forwarding each one gets BAHAYA. The opener gets WASPADA with "jangan dibalas".
+
 ## 1. Fake bank letter: "tarif transfer jadi Rp150 ribu/bulan"
 
 The most fully documented one. It's styled as an **official letter**: a letter number, the bank logo as the profile picture, and a deadline at midnight.

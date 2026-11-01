@@ -524,7 +524,8 @@ def _scam_numbers(inp: Input, result: AnalysisResult, from_model: list[str]) -> 
     return out[:3]
 
 
-_INSTALLED = re.compile(r"(?i)terlanjur|sudah\s+(di|ter)?(pasang|install|instal)|terpasang|ter-?install")
+_INSTALLED = re.compile(r"(?i)terlanjur|sudah\s+(di|ter|ke)?(pasang|install|instal)|terpasang|ter-?install|"
+                        r"kepasang|ke-?instal|kepencet")
 _APK_INSTALLED_STEP = ("Kalau sudah terlanjur dipasang, matikan internet (data dan WiFi), "
                        "lalu telepon call center resmi bank.")
 _RANK = {"AMAN": 0, "WASPADA": 1, "BAHAYA": 2}

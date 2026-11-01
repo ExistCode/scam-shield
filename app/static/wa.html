@@ -52,7 +52,7 @@
   .who { flex: 1; min-width: 0; }
   .who .name { font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 4px; }
   .who .name svg { width: 15px; height: 15px; fill: var(--wa-accent); }
-  .who .sub { font-size: 12.5px; opacity: .85; height: 16px; }
+  .who .sub { font-size: 12.5px; opacity: .85; height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .header .actions { display: flex; gap: 18px; padding-right: 6px; }
 
   .chat {
@@ -176,7 +176,7 @@
   .lrow { display: flex; align-items: center; gap: 8px; margin: 0 -14px; padding: 1px 14px; width: calc(100% + 28px);
     cursor: pointer; flex: none; }
   .lrow.out { justify-content: flex-end; }
-  .lrow .msg { max-width: 78%; }
+  .lrow .msg { max-width: 78%; animation: none; }  /* existing messages don't pop in when a chat opens */
   .lrow.sel { background: rgba(0, 128, 105, .16); }
   .fbtn { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(11, 20, 26, .28); display: grid;
     place-items: center; cursor: pointer; flex: none; }
@@ -374,28 +374,48 @@ function markRead(phone) { phone.pendingTicks.forEach((t) => t.classList.add("re
 
 // ------------------------------------------------------------------ Mama's phone: chat list -> contact chat -> forward to Ronda
 const DOC_MIME = "application/vnd.android.package-archive";
+// Every scam chat follows the wording documented in SCAM_WORDING.md (numbers, names, links are made up).
 const CONTACTS_TEMPLATE = [
   { id: "ronda", name: "Ronda", ronda: true, pinned: true, time: "", preview: "Teruskan pesan yang mencurigakan ke sini 🛡️" },
-  { id: "kurir", name: "Kurir J&T", color: "#e2554a", time: "21:48", unread: 2, msgs: [
-    { text: "Selamat siang, kami dari J&T Express. Paket atas nama Ibu tertahan di gudang karena alamat kurang lengkap." },
-    { doc: { name: "Cek_Resi_JNT.apk", size: "2,4 MB" }, text: "Silakan cek resi dan konfirmasi alamat lewat aplikasi ini ya Bu, paling lambat hari ini." } ] },
-  { id: "nomor_baru", name: "+62 812-9031-4477", color: "#8696a0", time: "21:31", unread: 2, msgs: [
-    { text: "Ma, ini nomor baru aku. HP lama rusak, nomornya nggak bisa dipakai 😢" },
-    { text: "Ma tolong transfer 2 juta dulu ya, darurat banget. Nanti aku ganti. Jangan bilang siapa-siapa dulu ya Ma 🙏" } ] },
-  { id: "keluarga", name: "Keluarga Besar 🏠", group: true, color: "#5b8def", time: "21:05", msgs: [
-    { from: "Tante Rina", color: "#d1527d", text: "Jangan lupa arisan Sabtu ya, di rumah Bu Ani jam 4 sore 🙏" },
-    { from: "Om Budi", color: "#2a9d8f", text: "Siap, nanti aku bawa kue lapis." },
-    { out: true, text: "Iya, Mama bawa risoles ya 😊" } ] },
+  // APK lure inside a family group, sent by an unknown member (§2: "Kami harap kehadirannya" + invitation .apk)
+  { id: "keluarga", name: "Keluarga Besar 🏠", group: true, color: "#5b8def", time: "21:52", unread: 2, msgs: [
+    { from: "Tante Rina", color: "#d1527d", text: "Jangan lupa arisan Sabtu ya, di rumah Bu Ani jam 4 sore 🙏", time: "20:31" },
+    { from: "Om Budi", color: "#2a9d8f", text: "Siap, nanti aku bawa kue lapis.", time: "20:40" },
+    { out: true, text: "Iya, Mama bawa risoles ya 😊", time: "20:44" },
+    { from: "+62 878-2201-6634 ~Dewi", color: "#b5651d", text: "Assalamualaikum, mohon maaf mengganggu 🙏", time: "21:51" },
+    { from: "+62 878-2201-6634 ~Dewi", color: "#b5651d", doc: { name: "Surat Undangan Pernikahan Digital.apk", size: "6,6 MB" },
+      text: "Kami harap kehadirannya", time: "21:52" } ] },
+  // Courier APK "to see the parcel photo / receipt" (§2)
+  { id: "kurir", name: "+62 852-7710-4093", about: "~J&T Express", color: "#e2554a", time: "21:48", unread: 2, msgs: [
+    { text: "Selamat siang, kami dari J&T Express. Paket atas nama Ibu tertahan di gudang karena alamat kurang lengkap 📦", time: "21:47" },
+    { doc: { name: "Foto Paket & Resi J&T.apk", size: "2,4 MB" },
+      text: "Mohon dicek dulu foto paket dan resinya ya Bu, lalu konfirmasi alamatnya. Paling lambat hari ini, kalau tidak paket dikembalikan ke pengirim 🙏", time: "21:48" } ] },
+  // Family impersonation: new number + reason + urgent money + secrecy (§3)
+  { id: "nomor_baru", name: "+62 812-9031-4477", color: "#8696a0", time: "21:31", unread: 3, msgs: [
+    { text: "Ma ini aku, ganti nomor ya. HP lama jatuh ke got 😭 simpen nomor ini aja Ma", time: "21:28" },
+    { text: "Ma aku lagi butuh bgt buat bayar kos sama praktikum, besok udah deadline 🙏 bisa transfer 2jt dulu ga? minggu depan aku ganti", time: "21:30" },
+    { text: "ke rek temenku aja ya Ma, BCA 5271093841 a.n. Rizky. jangan bilang Papa dulu yaa, nanti aku jelasin", time: "21:31" } ] },
+  // Fake bank letter: tariff Rp150rb/bulan (§1, wording quoted by Republika)
+  { id: "tarif_bri", name: "+62 811-2390-5512", about: "~BRI Care", color: "#00529c", time: "21:15", unread: 1, msgs: [
+    { text: "No: 0311/Bank BRI/XI/2026\n\nYth. Bapak/Ibu nasabah Bank BRI\n\nSehubungan dengan adanya peningkatan kualitas layanan transaksi transfer antar bank, mulai hari ini malam pukul 00.00 WIB, Bank BRI melakukan perubahan skema tarif transaksi dari Rp 6.500/transaksi dan BI Fast Rp 2.500 akan diubah menjadi Rp 150 ribu per bulan (unlimited).\n\n1. Setuju dengan tarif baru Rp 150 ribu per bulan unlimited transaksi.\n2. Tidak setuju dan tetap tarif lama Rp 6.500/transaksi, silakan isi formulir: https://bri-tarif-layanan.web.app\n\nUntuk penagihan potongan setiap bulannya akan langsung auto debet dari rekening tabungan. Jika tidak ada konfirmasi dianggap setuju.", time: "21:15" } ] },
+  // WhatsApp takeover: "salah kirim kode" (§5)
+  { id: "salah_kode", name: "+62 896-1144-2208", color: "#8696a0", time: "20:47", unread: 2, msgs: [
+    { text: "Kak maaf ganggu 🙏 tadi aku salah masukin nomor pas beli voucher game, kodenya malah kekirim ke nomor kakak", time: "20:46" },
+    { text: "boleh tolong kirimin 6 digit kodenya kak? penting bgt, makasih ya kak 🙏🙏", time: "20:47" } ] },
+  // Prize scam: official-sounding event, "pajak hadiah" first, deadline, HANGUS (§6)
   { id: "undian", name: "+62 813-5520-7781", about: "~Pusat Undian BRImo", color: "#8696a0", time: "20:12", unread: 3, msgs: [
     { text: "Selamat siang Bapak/Ibu nasabah BRI yang terhormat 🙏", time: "20:10" },
     { text: "Kami dari Tim Pusat Undian *BRImo FSTVL 2026* menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar *Rp100.000.000* (Seratus Juta Rupiah) 🎉🎉\n\nNo. Undian: BRI-26-0847\nKode Pemenang: FST-7731", time: "20:11" },
     { text: "Untuk proses pencairan hadiah, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 sesuai ketentuan yang berlaku dan wajib dibayarkan terlebih dahulu.\n\nSilahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", time: "20:12" } ] },
+  // Opener that tests whether the number is alive (§4, quoted by detik) -> WASPADA, "jangan dibalas"
+  { id: "kontak", name: "+62 838-6602-1175", color: "#8696a0", time: "19:58", unread: 1, msgs: [
+    { text: "Hai, aku menemukan kontakmu disimpan di kontakku, bisa ingatkan aku di mana kita berbincang sebelumnya?", time: "19:58" } ] },
   { id: "hans", name: "Hans", color: "#7e57c2", time: "19:40", msgs: [
-    { text: "Ma, nanti aku pulang agak malam ya, masih ada rapat." },
-    { out: true, text: "Iya nak, hati-hati di jalan ya." } ] },
+    { text: "Ma, nanti aku pulang agak malam ya, masih ada rapat.", time: "19:38" },
+    { out: true, text: "Iya nak, hati-hati di jalan ya.", time: "19:40" } ] },
   { id: "bu_ani", name: "Bu Ani", color: "#f4a261", time: "Kemarin", msgs: [
-    { text: "Makasih ya Bu kuenya kemarin, enak banget 🙏" },
-    { out: true, text: "Sama-sama Bu Ani 😊" } ] },
+    { text: "Makasih ya Bu kuenya kemarin, enak banget 🙏", time: "Kemarin" },
+    { out: true, text: "Sama-sama Bu Ani 😊", time: "Kemarin" } ] },
 ];
 let CONTACTS = structuredClone(CONTACTS_TEMPLATE);
 const contact = (id) => CONTACTS.find((c) => c.id === id);
@@ -442,7 +462,7 @@ function renderList() {
     return `<button class="row" type="button" data-id="${c.id}">${av}<div class="mid">
       <div class="nm">${esc(c.name)}${c.ronda ? ico("verified") : ""}</div>
       <div class="tm${c.unread ? " unread" : ""}">${esc(c.time || "")}</div>
-      <div class="pv">${typing ? `<span class="typing">mengetik…</span>` : outTick + esc(plain(pv))}</div>
+      <div class="pv">${typing ? `<span class="typing">mengetik…</span>` : outTick + esc(c.ronda ? plain(pv) : pv.split("\n")[0])}</div>
       ${c.unread ? `<div class="badge">${c.unread}</div>` : c.pinned ? ico("pin", "pin") : "<div></div>"}
     </div></button>`;
   }).join("");
@@ -475,7 +495,7 @@ function renderConvo() {
          <div class="actions"><button type="button" class="hbtn fwdsel" aria-label="Teruskan">${ico("fwd")}</button></div></div>`
     : `<div class="header"><button type="button" class="hbtn back" aria-label="Kembali">${ico("back")}</button>
          <div class="chead-av" style="background:${c.color}">${c.group ? ico("group") : initials(c.name)}</div>
-         <div class="who"><div class="name">${esc(c.name)}</div><div class="sub">${c.group ? "Tante Rina, Om Budi, Anda" : esc(c.about || "online")}</div></div>
+         <div class="who"><div class="name">${esc(c.name)}</div><div class="sub">${c.group ? "Tante Rina, Om Budi, +62 878-2201-6634, Anda" : esc(c.about || "online")}</div></div>
          <div class="actions">${ico("video")}${ico("call")}${ico("dots")}</div></div>`;
   const rows = c.msgs.map((m, i) => {
     const side = m.out ? "out" : "in";
@@ -652,13 +672,13 @@ fileInput.addEventListener("change", () => {
 // ------------------------------------------------------------------ scenarios
 const asset = async (name) => (await fetch(`/demo/assets/${name}`)).blob();
 const SCENARIOS = {
-  apk: () => sendDocument("Cek_Resi_JNT.apk", "2,4 MB", "Selamat siang, paket atas nama Ibu tertahan di gudang. Silakan cek resi lewat aplikasi berikut ya Bu."),
+  apk: () => sendDocument("Foto Paket & Resi J&T.apk", "2,4 MB", "Selamat siang, kami dari J&T Express. Paket atas nama Ibu tertahan di gudang karena alamat kurang lengkap. Mohon dicek dulu foto paket dan resinya ya Bu, paling lambat hari ini 🙏"),
   polisi_voice: async () => sendBlob(await asset("voice_polisi_gadungan.ogg"), { type: "audio" }),
   polisi_video: async () => sendBlob(await asset("video_polisi_gadungan.mp4"), { type: "video" }),
   qris_warung: async () => sendBlob(await asset("qris_warung_foto.jpg"), { type: "image", caption: "Mau bayar di Warung Bu Sri pakai QRIS ini, aman ga?", forwarded: false }),
   qris_infaq: async () => sendBlob(await asset("qris_kotak_infaq.png"), { type: "image", caption: "Ini QRIS di kotak infaq masjid, mau sedekah", forwarded: false }),
   resi: async () => sendBlob(await asset("resi_palsu_chat.png"), { type: "image" }),
-  nomor_baru: () => sendText("Ma, ini nomor baru aku, hp lama rusak. Tolong transfer 2 juta dulu ya, darurat banget. Jangan bilang siapa-siapa dulu ya Ma.", true),
+  nomor_baru: () => sendText("Ma ini aku, ganti nomor ya. HP lama jatuh ke got 😭\nMa aku lagi butuh bgt buat bayar kos sama praktikum, bisa transfer 2jt dulu ga? minggu depan aku ganti\nke rek temenku aja ya Ma, BCA 5271093841 a.n. Rizky. jangan bilang Papa dulu yaa", true),
   undian: () => sendText("Kami dari Tim Pusat Undian BRImo FSTVL 2026 menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar Rp100.000.000 🎉 Untuk pencairan, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 yang wajib dibayarkan terlebih dahulu. Silahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", true),
   arisan: () => sendText("Ibu-ibu, arisan bulan ini di rumah Bu Ani hari Sabtu jam 4 sore ya. Jangan lupa bawa kue 🙏", true),
 };

@@ -873,3 +873,14 @@ def test_escalation_timeout_keeps_spark(monkeypatch):
     assert [c["who"] for c in log] == ["meta", "wonder"]
     assert r.verdict.risk == "WASPADA" and r.model == "muse-spark-1.3"
     assert not any(t.startswith("escalated") for t in r.tools_used) and r.escalation["wonder"] is None
+
+
+@pytest.mark.parametrize("model_step", [
+    "Kalau sudah kepasang, matikan internet dan telepon bank.",
+    "Kalau kepencet pasang, matikan internet cepat.",
+    "Kalau sudah terinstall, matikan data.",
+])
+def test_apk_installed_step_not_duplicated(fake, model_step):
+    fake([_resp(_verdict_json(risk="BAHAYA", category="kurir_apk", next_steps=["Jangan dibuka.", model_step]))])
+    r = orchestrator.analyze(Input(type="document", text="[File terlampir: Undangan.apk]"))
+    assert r.verdict.next_steps == ["Jangan dibuka.", model_step]
