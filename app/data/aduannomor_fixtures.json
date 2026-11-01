@@ -1,0 +1,6 @@
+{
+  "_note": "Real responses captured from the AduanNomor.id public lookup on 2026-11-01, used only when the live call fails (or ADUANNOMOR_MODE=fixture). Add more with: python -m app.tools.aduannomor capture 08xxxxxxxxxx",
+  "+6281234567890": {"status": 200, "error": false, "data": {"reported_phone": "+6281234567890", "reported_phone_status": "Blocked | Recycled | Aktif", "reported_count": 0, "reported_kejahatan": [], "reported_status_laporan": []}, "messages": "Data Loaded", "_captured": "2026-11-01"},
+  "+6285722310098": {"status": 200, "error": false, "data": {"reported_phone": "+6285722310098", "reported_phone_status": "Blocked | Recycled | Aktif", "reported_count": 0, "reported_kejahatan": [], "reported_status_laporan": []}, "messages": "Data Loaded", "_captured": "2026-11-01"},
+  "+6285711223344": {"status": 200, "error": false, "data": {"reported_phone": "+6285711223344", "reported_phone_status": "Blocked | Recycled | Aktif", "reported_count": 0, "reported_kejahatan": [], "reported_status_laporan": []}, "messages": "Data Loaded", "_captured": "2026-11-01"}
+}
