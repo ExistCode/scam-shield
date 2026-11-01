@@ -1,6 +1,6 @@
 # Research coverage
 
-How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The last run on 1 Nov 2026 passed **38/38**.
+How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. The 9 false-positive controls added afterwards (everyday AMAN and borderline WASPADA messages) also pass.
 
 ## 1. Top scam types (IASC ranking)
 
@@ -16,7 +16,7 @@ How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "L
 | 8 | Social engineering (fake CS, tariff change) | Prompt pattern ("tarif Rp150rb/bulan, isi formulir") | `cs_bank_palsu` | `cs_bank_tarif`, `tarif_bca` |
 | 9 | Pinjol fiktif | Prompt pattern (upfront admin fee, "tanpa BI checking") | `pinjol` | `pinjol` |
 | 10 | APK via WhatsApp | A `.apk` attachment is **always BAHAYA** (deterministic rule). Next steps include "already installed: turn off internet, call the bank" | `kurir_apk` | `kurir_apk_1` (must mention already-installed step), `kurir_apk_2`, `Cek_Resi_JNT.apk` |
-| – | QRIS sticker swap (shops **and mosque donation boxes**) | QR decoded locally (2 OpenCV detectors, survives tilted/blurry photos). Merchant name compared with the shop/mosque name. Checksum verified | `qris_palsu` | `qris_palsu_tempelan.png`, `qris_kotak_infaq.png`; offline: decode of all stickers + checksum |
+| – | QRIS sticker swap (shops **and mosque donation boxes**) | Muse calls the `decode_qris` tool (2 OpenCV detectors, survives tilted/blurry photos) and compares the merchant name with the shop/mosque name. Checksum verified; a bad CRC is never AMAN | `qris_palsu` | `qris_palsu_tempelan.png`, `qris_kotak_infaq.png`; offline: decode of all stickers + checksum |
 | – | Fake gold sites | Link check flags `antam`/`logammulia` names not on logammulia.com (e.g. `antamlogamulia-id.com`) | `investasi` | `emas_palsu` |
 
 ## 2. Headline numbers
@@ -53,7 +53,8 @@ These are in the system prompt and the follow-up prompt as the **only** numbers 
 | Belanja online: screenshot + account → cekrekening.id | ✅ |
 | QRIS swap | ✅ shop + mosque |
 | Phishing / hadiah palsu / investment, lookalike domains | ✅ |
-| AMAN controls (real J&T update, family chat, legit bank promo) | ✅ `aman_jnt_asli`, `aman_keluarga`, `aman_promo_bank`, `aman_ojk_info`, `aman_arisan`, `aman_ultah` |
+| AMAN controls (real J&T update, family chat, legit bank promo) | ✅ `aman_jnt_asli`, `aman_keluarga`, `aman_promo_bank`, `aman_ojk_info`, `aman_arisan`, `aman_ultah`, plus strict AMAN `aman_posyandu`, `aman_cucu_sampai`, `aman_driver_gofood`, and `aman_tagihan_pln`, `aman_otp_sendiri` |
+| Borderline WASPADA (not every odd message is a scam) | ✅ `waspada_nomor_baru`, `waspada_teman_pinjam`, `waspada_lowongan_umum`, `waspada_promo_link_asli` |
 
 ## Case study: fake police video call
 
