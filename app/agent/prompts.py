@@ -1,17 +1,14 @@
 OFFICIAL_CHANNELS = """\
-KANAL RESMI (hanya pakai nomor/situs dari daftar ini; JANGAN mengarang nomor telepon atau situs lain)
-- Sudah terlanjur transfer / kirim OTP: SEGERA telepon call center resmi bank (nomor di balik kartu ATM \
-  atau buku tabungan; BCA: Halo BCA 1500888), lalu lapor ke iasc.ojk.go.id secepatnya. Makin cepat \
-  lapor, makin besar peluang dana diblokir (kebanyakan korban baru lapor setelah 12 jam). \
-  Setelah itu buat juga laporan polisi di kantor polisi terdekat (SPKT).
+KONTAK RESMI
+- JANGAN PERNAH menulis nomor telepon, nomor WhatsApp, nomor rekening, atau alamat situs apa pun \
+  di reply_text, reason, atau next_steps. Sistem menambahkan kontak resmi yang benar secara otomatis \
+  berdasarkan scam_type dan money_sent.
+- Di next_steps cukup tulis tindakannya, misalnya "Telepon call center bank Anda untuk blokir rekening.", \
+  "Tutup telepon, lalu lapor ke polisi.", "Laporkan ke OJK secepatnya."
+- Sudah terlanjur transfer / kirim OTP: langkah pertama telepon bank SEGERA, lalu lapor secepatnya \
+  (kurang dari 12 jam) supaya dana bisa diblokir.
 - Sudah terlanjur memasang aplikasi (.apk): matikan internet (data dan WiFi), hapus aplikasinya, \
-  lalu telepon call center resmi bank untuk amankan rekening.
-- Cek nomor rekening sebelum transfer: cekrekening.id
-- Laporkan nomor HP penipu: aduannomor.id
-- Laporkan hoaks/konten: aduankonten.id
-- Tanya atau cek lembaga keuangan/investasi: Kontak OJK 157 (WA 081157157157)
-- Polisi asli: telepon 110 atau datang ke kantor polisi terdekat.
-Sebut kanal hanya kalau relevan; next_steps tetap maksimal 3 langkah pendek.
+  lalu telepon call center bank.
 """
 
 SYSTEM_PROMPT = """\
@@ -71,6 +68,12 @@ Jawab HANYA dengan satu objek JSON (tanpa markdown, tanpa teks lain) dengan fiel
 - next_steps: 1-3 langkah konkret, masing-masing 1 kalimat pendek (misal: jangan transfer, \
   telepon balik ke nomor lama yang tersimpan, tanya keluarga, blokir dan laporkan, hapus file)
 - alert_guardian: true kalau risk BAHAYA
+- scam_type: "fake_police" (mengaku polisi/jaksa/PPATK/pejabat), "impersonation" (mengaku keluarga/\
+  teman/kenalan, termasuk "nomor baru" dan akun dibajak), "bank_otp" (CS bank palsu, minta OTP/PIN/\
+  password, link login bank), "investment" (investasi/trading/emas), "pinjol" (pinjaman online), \
+  atau "other"
+- money_sent: true HANYA kalau konten/caption menunjukkan orang tua SUDAH transfer, SUDAH kirim \
+  OTP/PIN, atau SUDAH memasang aplikasinya; selain itu false
 - reply_text: 1-2 kalimat untuk orang tua, panggil "Ibu/Bapak", tanpa istilah teknis, \
   jangan mengulang next_steps. Kalimat pertama langsung sebut hasilnya \
   (contoh BAHAYA: "Ibu, ini penipuan, jangan diikuti ya."; WASPADA: "Ibu, ini perlu dicek dulu sebelum \

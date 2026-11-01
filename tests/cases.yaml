@@ -92,7 +92,7 @@
   text: "Promo cuci gudang! Kulkas 2 pintu cuma Rp1,2 jt, stok tinggal 3. Transfer DP Rp500rb ke rek pribadi admin ya kak, BRI 0123456789 a.n. Siska. Barang dikirim besok."
   expected: BAHAYA
   accept: [WASPADA]
-  must_mention: [cekrekening]
+  must_mention: ["transfer"]
 - id: akun_dibajak
   type: text
   text: "Bu, ini aku Rina. Akun WA lama kena hack, ini nomor baruku. Aku lagi butuh banget, pinjam Rp2 jt dulu ya besok aku ganti. Jangan telpon dulu, aku lagi rapat."
@@ -102,7 +102,7 @@
   type: text
   text: "Selamat siang, kami dari Polda Metro Jaya. Nama Ibu tercatat sebagai penerima paket narkoba. Jangan tutup telepon dan jangan beritahu keluarga. Untuk pembuktian, transfer dana Ibu ke rekening penampungan PPATK berikut sampai pemeriksaan selesai."
   expected: BAHAYA
-  must_mention: ["110|kantor polisi"]
+  must_mention: ["\\*110\\*"]
 - id: hadiah_bri
   type: text
   text: "SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu."
@@ -133,7 +133,7 @@
   type: text
   text: "Gabung komunitas AI Robot Trading! Robot kami trading otomatis 24 jam, profit 3% per hari dijamin. Deposit min Rp1 jt ke rekening admin BCA 8830123456, withdraw kapan saja."
   expected: BAHAYA
-  must_mention: [cekrekening]
+  must_mention: ["081-157-157-157"]
 - id: phishing_undian
   type: text
   text: "Selamat! Anda terpilih mendapat hadiah undian Shopee 2026 senilai Rp25 juta. Klaim sebelum jam 18.00 di http://shopee-undian-hadiah.click/klaim dan isi data rekening Anda."
@@ -189,3 +189,8 @@
   text: "Flash sale 11.11! Diskon sampai 70% hari ini saja, cek di https://shopee.co.id/flash_sale"
   expected: WASPADA
   accept: [AMAN]
+- id: sudah_transfer_cs_bank
+  type: text
+  text: "Tadi ada CS BCA telepon, katanya rekening saya diblokir. Saya sudah kirim kode OTP-nya dan sudah transfer 3 juta ke rekening yang dia kasih. Ini gimana ya?"
+  expected: BAHAYA
+  must_mention: ["1500888", "iasc\\.ojk\\.go\\.id"]

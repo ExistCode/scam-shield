@@ -157,6 +157,9 @@ def test_followup_answered_in_context(client, monkeypatch):
     n_child = sum(1 for c, _ in sent if c == str(CHILD))
     post(PARENT, "aduh aku sudah transfer 2 juta")
     assert any(c == str(CHILD) and "SUDAH terlanjur" in t for c, t in sent[n_child:])
+    emergency = [t for c, t in sent if c == str(PARENT)][-1]
+    assert emergency.startswith("Segera telepon bank ya Bu.")
+    assert "1500888" in emergency and "https://iasc.ojk.go.id" in emergency  # added by code, not the model
 
     # model says it's new content -> normal analysis
     monkeypatch.setattr(followup, "get_provider", lambda name=None: _followup_provider(
@@ -216,3 +219,13 @@ def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
     monkeypatch.setattr(guardian_policy, "COOLDOWN", guardian_policy.timedelta(0))
     post(PARENT, "Paket tertahan keempat")                   # delivery failed: say so
     assert "belum terkirim" in verdict_msgs()[-1] and "Sudah kami kabari" not in verdict_msgs()[-1]
+
+
+def test_followup_scrubs_invented_numbers(monkeypatch):
+    from app.agent import contacts, followup
+    monkeypatch.setattr(followup, "get_provider", lambda name=None: _followup_provider(
+        {"intent": "followup", "reply": "Telepon Mandiri 14000 atau WA 0812-9999-8888 ya Bu.", "already_paid": True}))
+    ans = followup.answer("sudah transfer", {"case_id": 1, "risk": "BAHAYA", "category": "cs_bank_palsu",
+                                             "reason": "x", "next_steps": [], "input_text": "CS bank"})
+    assert contacts.unofficial_numbers(ans.reply) == [] and "14000" not in ans.reply
+    assert "1500888" in ans.reply and "iasc.ojk.go.id" in ans.reply

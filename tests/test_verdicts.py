@@ -397,7 +397,9 @@ def test_live_matrix(case):
     if r.verdict.risk in ("WASPADA", "BAHAYA"):
         assert not orchestrator._SOFTENER.search(r.verdict.reply_text), r.verdict.reply_text
         assert "pintar" not in r.verdict.reply_text.lower(), r.verdict.reply_text
-    said = " ".join([r.verdict.reply_text, r.verdict.reason, *r.verdict.next_steps]).lower()
+    out = format_reply(r.verdict)
+    assert contacts.unofficial_numbers(out) == [], out
+    said = out.lower()
     print(f"\n{case['id']}: {r.verdict.risk}/{r.verdict.category} conf={r.verdict.confidence:.2f} "
           f"tools={r.tools_used} {r.latency_ms}ms overrides={[o['rule'] for o in r.overrides]}\n  {r.verdict.reply_text}"
           f"\n  steps: {r.verdict.next_steps}")
@@ -413,7 +415,7 @@ IMAGE_CASES = [
     ("qris_kotak_infaq.png", "Ini QRIS di kotak infaq masjid, mau sedekah", {"WASPADA", "BAHAYA"}),
     ("toko_online_palsu_chat.png", "Bu ini promo kulkas murah, beli ga ya", {"BAHAYA", "WASPADA"}),
 ]
-IMAGE_MUST_MENTION = {"toko_online_palsu_chat.png": "cekrekening", "qris_kotak_infaq.png": "toko pulsa jaya|nama"}
+IMAGE_MUST_MENTION = {"toko_online_palsu_chat.png": "transfer", "qris_kotak_infaq.png": "toko pulsa jaya|nama"}
 
 
 @live
@@ -423,7 +425,9 @@ def test_live_images(fname, caption, allowed):
     if not path.exists():
         pytest.skip("run: python -m tests.manual.make_assets")
     r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime="image/png"))
-    said = " ".join([r.verdict.reply_text, r.verdict.reason, *r.verdict.next_steps]).lower()
+    out = format_reply(r.verdict)
+    assert contacts.unofficial_numbers(out) == [], out
+    said = out.lower()
     print(f"\n{fname}: {r.verdict.risk}/{r.verdict.category} muse={r.model_risk} mode={r.image_mode} "
           f"tools={r.tools_used} {r.latency_ms}ms\n  {r.verdict.reason}\n  steps: {r.verdict.next_steps}")
     assert r.verdict.risk in allowed
@@ -474,7 +478,80 @@ def test_identifier_hints_reach_the_model(fake):
     p = fake([_resp(_verdict_json(category="belanja_online"))])
     orchestrator.analyze(Input(type="text", text="DP ke rek pribadi BCA 1234567890 a.n. Siska, WA 081299887766"))
     msg = p.calls[0]["messages"][1]["content"]
-    assert "cekrekening.id" in msg and "aduannomor.id" in msg
+    assert "1234567890" in msg and "081299887766" in msg  # the model is told what was spotted
+
+
+# --------------------------------------------------------------------------- official contacts
+
+from app.agent import contacts  # noqa: E402
+from app.channels.formatting import format_reply  # noqa: E402
+
+
+def test_fake_police_gets_110(fake):
+    fake([_resp(_verdict_json(category="aparat_palsu", scam_type="fake_police",
+                              next_steps=["Tutup telepon.", "Jangan transfer."]))])
+    r = orchestrator.analyze(Input(type="text", text="Kami dari Polda, transfer ke rekening PPATK untuk pembuktian"))
+    out = format_reply(r.verdict)
+    assert "*110*" in out and "iasc" not in out.lower()  # no money sent yet: no IASC
+
+
+def test_scam_type_falls_back_to_category(fake):
+    fake([_resp(_verdict_json(category="aparat_palsu", scam_type="other"))])
+    r = orchestrator.analyze(Input(type="text", text="Kami dari Polda Metro Jaya"))
+    assert r.verdict.scam_type == "fake_police" and "*110*" in format_reply(r.verdict)
+
+
+def test_money_sent_gets_bank_and_iasc_first(fake):
+    fake([_resp(_verdict_json(category="cs_bank_palsu", scam_type="bank_otp", money_sent=True))])
+    r = orchestrator.analyze(Input(type="text", text="Aduh sudah saya transfer 2 juta ke CS BCA tadi"))
+    out = format_reply(r.verdict)
+    assert "1500888" in out and "https://iasc.ojk.go.id" in out
+    assert out.index("1500888") < out.index("iasc.ojk.go.id")  # bank first, then IASC
+    assert "12 jam" in out
+
+
+def test_investment_and_pinjol_get_ojk(fake):
+    for cat, st in (("investasi", "investment"), ("pinjol", "pinjol")):
+        fake([_resp(_verdict_json(category=cat, scam_type=st))])
+        out = format_reply(orchestrator.analyze(Input(type="text", text="profit 3% per hari")).verdict)
+        assert "157" in out and "081-157-157-157" in out
+
+
+def test_scam_phone_number_gets_aduannomor(fake):
+    fake([_resp(_verdict_json(category="hadiah_palsu", scam_type="other"))])
+    r = orchestrator.analyze(Input(type="text", text="Menang undian! Hubungi admin WA 0857-1122-3344"))
+    assert "https://aduannomor.id" in format_reply(r.verdict)
+
+
+def test_aman_has_no_contacts(fake):
+    fake([_resp(_verdict_json(risk="AMAN", category="lainnya", confidence=0.9, alert_guardian=False,
+                              reply_text="Ini aman, Bu."))])
+    r = orchestrator.analyze(Input(type="text", text="Bu, posyandu besok jam 8"))
+    assert r.verdict.contacts == [] and "Kontak resmi" not in format_reply(r.verdict)
+
+
+@pytest.mark.parametrize("invented", [
+    "Hubungi Mandiri di 14000 sekarang.",
+    "Telepon CS di 0812-3456-7890 ya.",
+    "Lapor ke WA +62 811 2222 3333.",
+    "Transfer balik ke BRI 0123456789.",
+    "Telepon hotline 1500017.",
+])
+def test_no_number_outside_contacts_ever_reaches_the_reply(fake, invented):
+    fake([_resp(_verdict_json(category="cs_bank_palsu", scam_type="bank_otp", money_sent=True,
+                              reply_text="Ini penipuan, Bu. " + invented, reason=invented,
+                              next_steps=[invented, "Jangan kirim OTP."]))])
+    r = orchestrator.analyze(Input(type="text", text="CS BCA minta OTP, sudah saya kirim"))
+    out = format_reply(r.verdict)
+    assert contacts.unofficial_numbers(out) == [], out
+    assert "1500888" in out and "iasc.ojk.go.id" in out  # the official ones are still there
+    assert any(o["rule"] == "nomor_tidak_resmi_dihapus" for o in r.overrides)
+
+
+def test_contacts_map_only_has_verified_entries():
+    assert contacts.ALLOWED_NUMBERS == {"110", "157", "081157157157", "1500888"}
+    sites = {c["contact"] for cs in contacts.CONTACTS_BY_TYPE.values() for c in cs if c["contact"].startswith("http")}
+    assert sites == {"https://iasc.ojk.go.id", "https://aduannomor.id"}
 
 
 def test_video_audio_extraction():

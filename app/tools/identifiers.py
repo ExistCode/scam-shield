@@ -1,8 +1,8 @@
 """Spot bank/e-wallet account numbers and phone numbers in a message (deterministic, no model).
 
 Used to point the parent at the right official channel:
-  account number -> cekrekening.id (check before transferring)
-  phone number   -> aduannomor.id  (report the scammer's number)
+  account number -> flagged to the model (transfer to a personal account is a red flag)
+  phone number   -> aduannomor.id added by code when the verdict is BAHAYA (see app/agent/contacts.py)
 """
 from __future__ import annotations
 
@@ -48,9 +48,9 @@ def context_lines(text: str) -> list[str]:
     accounts = extract_accounts(text)
     if accounts:
         lines.append("Nomor rekening/e-wallet di pesan: " + ", ".join(accounts)
-                     + " -> kalau ada permintaan transfer, sarankan cek dulu nomor ini di cekrekening.id.")
+                     + " -> kalau ada permintaan transfer ke rekening pribadi, itu tanda bahaya.")
     phones = [p for p in extract_phones(text) if p not in accounts]
     if phones:
         lines.append("Nomor HP di pesan: " + ", ".join(phones)
-                     + " -> kalau ini penipuan, nomor bisa dilaporkan di aduannomor.id.")
+                     + " -> kalau ini penipuan, sistem akan menambahkan cara melaporkan nomornya.")
     return lines

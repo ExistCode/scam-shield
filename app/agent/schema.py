@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.agent.contacts import SCAM_TYPES, ScamType
+
 Risk = Literal["AMAN", "WASPADA", "BAHAYA"]
 Category = Literal[
     "kurir_apk", "minta_pulsa", "cs_bank_palsu", "aparat_palsu", "investasi", "belanja_online",
@@ -19,13 +21,18 @@ class Verdict(BaseModel):
     next_steps: list[str] = Field(min_length=1, max_length=3)
     alert_guardian: bool
     reply_text: str = Field(min_length=1)
+    # The model only names the type; the code picks contacts from app/agent/contacts.py.
+    scam_type: ScamType = "other"
+    money_sent: bool = False  # content shows the parent already transferred / sent OTP / installed
+    contacts: list[dict] = Field(default_factory=list)  # filled by code, never by the model
 
 
 # JSON schema sent as response_format (kept identical to PLAN.md).
 VERDICT_JSON_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["risk", "category", "confidence", "reason", "next_steps", "alert_guardian", "reply_text"],
+    "required": ["risk", "category", "confidence", "reason", "next_steps", "alert_guardian", "reply_text",
+                 "scam_type", "money_sent"],
     "properties": {
         "risk": {"type": "string", "enum": ["AMAN", "WASPADA", "BAHAYA"]},
         "category": {
@@ -40,6 +47,8 @@ VERDICT_JSON_SCHEMA = {
         "next_steps": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 3},
         "alert_guardian": {"type": "boolean"},
         "reply_text": {"type": "string"},
+        "scam_type": {"type": "string", "enum": SCAM_TYPES},
+        "money_sent": {"type": "boolean"},
     },
 }
 

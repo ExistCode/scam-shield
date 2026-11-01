@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from datetime import timedelta
 
+from app.agent import contacts
 from app.agent.prompts import OFFICIAL_CHANNELS, wrap_forwarded
 from app.agent.providers import get_provider
 from app.agent.schema import Verdict
@@ -39,9 +40,9 @@ Kalau followup, tulis reply:
 - Konsisten dengan penilaian sebelumnya. Jangan pernah bilang "100% aman".
 - Jangan pernah minta OTP, PIN, password, atau uang. Jangan suruh buka link atau pasang aplikasi.
 - Kalau mereka bilang SUDAH terlanjur transfer, kirim kode OTP/PIN, atau memasang aplikasi: \
-set already_paid=true dan beri langkah darurat, urut: (1) SEGERA telepon call center resmi bank untuk blokir, \
-(2) kalau sudah pasang aplikasi, matikan internet lalu hapus aplikasinya, (3) lapor ke iasc.ojk.go.id \
-secepatnya. Bilang juga keluarga/wali sudah dikabari.
+set already_paid=true dan beri langkah darurat, urut: (1) SEGERA telepon call center bank untuk blokir, \
+(2) kalau sudah pasang aplikasi, matikan internet lalu hapus aplikasinya, (3) lapor secepatnya, \
+kurang dari 12 jam. Kontak resminya ditambahkan otomatis di bawah jawabanmu.
 
 {official_channels}
 
@@ -87,7 +88,19 @@ def answer(message: str, last_case: dict) -> FollowupAnswer | None:
     if intent not in ("followup", "new_check") or (intent == "followup" and not reply):
         return None
     reply = re.sub(r"(?i)\b(100\s*%\s*aman|pasti\s+aman|dijamin\s+aman)", "kemungkinan aman", reply)
-    return FollowupAnswer(intent=intent, reply=reply, already_paid=bool(data.get("already_paid")))
+    reply = contacts.scrub_numbers(reply)
+    already_paid = bool(data.get("already_paid"))
+    scam_type = contacts.resolve_type(last_case.get("scam_type"), last_case.get("category"))
+    if intent == "followup":
+        if already_paid:
+            extra = contacts.contacts_for(scam_type, money_sent=True)
+        elif last_case.get("risk") != "AMAN":
+            extra = contacts.contacts_for(scam_type)
+        else:
+            extra = []
+        if extra:
+            reply += "\n\n" + contacts.format_contacts(extra)
+    return FollowupAnswer(intent=intent, reply=reply, already_paid=already_paid)
 
 
 def urgent_verdict(last_case: dict) -> Verdict:

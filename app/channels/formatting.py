@@ -2,6 +2,7 @@
 import html
 import re
 
+from app.agent.contacts import format_contacts
 from app.agent.schema import AnalysisResult, Verdict
 
 RISK_HEADER = {
@@ -47,6 +48,8 @@ def format_reply(v: Verdict, guardian: str = "", footer: str = "") -> str:
     steps = "\n".join(f"{i}. {s}" for i, s in enumerate(v.next_steps, 1))
     lines = [RISK_HEADER[v.risk], "", v.reply_text.strip(), "", f"Alasannya: {v.reason.strip()}", "",
              "*Yang perlu dilakukan:*", steps]
+    if v.contacts:
+        lines += ["", format_contacts(v.contacts)]
     if guardian:
         lines += ["", guardian]
     lines += ["", "_Cek dulu, baru transfer._"]

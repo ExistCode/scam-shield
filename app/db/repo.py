@@ -110,7 +110,8 @@ def last_case_for(user_id: int, within: timedelta) -> dict | None:
             return None
         case, v = row
         return {"case_id": case.id, "input_text": case.input_text, "risk": v.risk, "category": v.category,
-                "reason": v.reason, "next_steps": v.next_steps or []}
+                "reason": v.reason, "next_steps": v.next_steps or [],
+                "scam_type": (v.details or {}).get("scam_type")}
 
 
 def mark_alerted(case_id: int) -> None:
