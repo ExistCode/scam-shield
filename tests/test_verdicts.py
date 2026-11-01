@@ -433,8 +433,8 @@ def test_live_images(fname, caption, allowed):
         pytest.skip("run: python -m tests.manual.make_assets")
     mime = "image/jpeg" if fname.endswith(".jpg") else "image/png"
     r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime=mime))
-    if fname == "qris_warung_foto.jpg":  # too small/blurry for the local scan: SAM 3.1 must find it
-        assert "sam_crop" in r.tools_used and r.tool_outputs["decode_qris"]["merchant_name"] == "ANDI CELL"
+    if fname == "qris_warung_foto.jpg":  # too small/blurry for the local scan: Muse should call SAM 3.1
+        assert "segment_region" in r.tools_used and r.tool_outputs["decode_qris"]["merchant_name"] == "ANDI CELL"
     out = format_reply(r.verdict)
     assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers + r.verdict.scam_account_numbers) == [], out
     assert not _OWNER_CLAIM.search(out), out
@@ -725,33 +725,151 @@ def test_sam_parse_boxes():
     assert segment.parse_boxes("") == []
 
 
-def test_sam_crop_rescues_missed_qr(fake, monkeypatch):
-    """Local scan misses the QR; the model calls decode_qris; SAM finds it; the crop decodes."""
-    from app.tools import segment
+def _missed_qr_image(monkeypatch):
     big = cv2.copyMakeBorder(cv2.imdecode(np.frombuffer(qr_png(make_qris("ANDI CELL")), np.uint8), cv2.IMREAD_COLOR),
                              600, 600, 600, 600, cv2.BORDER_CONSTANT, value=(255, 255, 255))
     data = cv2.imencode(".png", big)[1].tobytes()
-    h, w = big.shape[:2]
     real_decode = qris.decode_qr_image
-    monkeypatch.setattr(qris, "decode_qr_image", lambda b: None if b == data else real_decode(b))  # "missed"
-    monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: [{"x1": 550, "y1": 550, "x2": w - 550, "y2": h - 550, "c": 0.9}])
-    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta",
-                                                                  wonder_threshold=0))
-    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="decode_qris", arguments="{}"))
-    p = fake([_resp(tool_calls=[call]), _resp(_verdict_json(category="qris_palsu"))])
+    monkeypatch.setattr(qris, "decode_qr_image", lambda b: None if b == data else real_decode(b))  # local scan "misses"
+    return data, big.shape[:2]
+
+
+def _call(name, args="{}", cid="c1"):
+    return SimpleNamespace(id=cid, function=SimpleNamespace(name=name, arguments=args))
+
+
+def test_model_calls_segment_region_for_missed_qr(fake, monkeypatch):
+    """Local scan misses the QR -> decode_qris says not found + hint -> the model calls segment_region(qr_code)
+    -> SAM box -> crop decodes."""
+    from app.channels.formatting import tools_footer
+    from app.tools import segment
+    data, (h, w) = _missed_qr_image(monkeypatch)
+    phrases = []
+    monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: phrases.append(phrase) or
+                        [{"x1": 550, "y1": 550, "x2": w - 550, "y2": h - 550, "c": 0.9}])
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta", wonder_threshold=0, wonder_model=""))
+    p = fake([_resp(tool_calls=[_call("decode_qris")]),
+              _resp(tool_calls=[_call("segment_region", '{"target": "qr_code"}', "c2")]),
+              _resp(_verdict_json(category="qris_palsu"))])
     r = orchestrator.analyze(Input(type="image", text="Warung Bu Sri", media_bytes=data, mime="image/png"))
-    assert "Ada kode QR" not in p.calls[0]["messages"][1]["content"]  # the local scan found nothing
-    assert "ANDI CELL" in p.calls[1]["messages"][-1]["content"]       # but the tool answer has it
-    assert r.tools_used[:2] == ["decode_qris", "sam_crop"] or "sam_crop" in r.tools_used
-    assert r.tool_outputs["sam_crop"]["decoded"] is True
+    assert "segment_region" in [t["function"]["name"] for t in p.calls[0]["tools"]]  # model-callable
+    assert "segment_region" in p.calls[1]["messages"][-1]["content"]  # decode_qris hint
+    seg = json.loads(p.calls[2]["messages"][-1]["content"])
+    assert phrases == ["QR code"] and seg["dibaca_dari"] == "potongan SAM" and seg["qris"]["merchant_name"] == "ANDI CELL"
+    assert {"segment_region", "decode_qris"} <= set(r.tools_used)
+    assert "SAM 3.1 (potong area)" in tools_footer(r)
+    trace = orchestrator.details(r)["trace"]
+    assert any(t["step"] == "SAM 3.1 segment_region" and "potongan SAM" in t["result"] for t in trace)
 
 
-def test_sam_failure_is_silent(fake, monkeypatch):
+def test_segment_region_falls_back_to_full_image(fake, monkeypatch):
     from app.tools import segment
     monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: (_ for _ in ()).throw(RuntimeError("down")))
-    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta",
-                                                                  wonder_threshold=0))
-    call = SimpleNamespace(id="c1", function=SimpleNamespace(name="decode_qris", arguments="{}"))
-    p = fake([_resp(tool_calls=[call]), _resp(_verdict_json(risk="WASPADA", category="lainnya", alert_guardian=False))])
-    r = orchestrator.analyze(Input(type="image", media_bytes=b"not-an-image-with-qr", mime="image/png"))
-    assert '"found": false' in p.calls[1]["messages"][-1]["content"] and r.verdict.risk == "WASPADA"
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta", wonder_threshold=0, wonder_model=""))
+    seen = {}
+    monkeypatch.setattr(orchestrator.vision, "describe_image",
+                        lambda b, m=None: seen.update(bytes=b) or {"kind": "chat", "extracted_text": "WA +62 857-2231-0098", "notes": ""})
+    img = qr_png(make_qris("ANDI CELL"))
+    p = fake([_resp(tool_calls=[_call("segment_region", '{"target": "qr_code"}'),
+                                _call("segment_region", '{"target": "phone_number"}', "c2")]),
+              _resp(_verdict_json(category="kurir_apk"))])
+    r = orchestrator.analyze(Input(type="image", media_bytes=img, mime="image/png"))
+    qr_out, phone_out = [json.loads(m["content"]) for m in p.calls[1]["messages"][-2:]]
+    assert qr_out["sam"] == "gagal" and qr_out["dibaca_dari"] == "gambar penuh" and qr_out["qris"]["found"]
+    assert phone_out["dibaca_dari"] == "gambar penuh" and "857-2231-0098" in phone_out["teks"]
+    assert seen["bytes"] == img  # Muse vision got the full image
+    assert r.verdict.risk == "BAHAYA"
+
+
+def test_segment_region_crops_phone_for_muse_vision(fake, monkeypatch):
+    from app.tools import segment
+    img = qr_png(make_qris("X"))
+    monkeypatch.setattr(segment, "find_boxes", lambda b, phrase: [{"x1": 10, "y1": 10, "x2": 60, "y2": 30, "c": 0.6}])
+    monkeypatch.setattr(orchestrator, "settings", SimpleNamespace(meta_api_key="k", max_tool_steps=4, llm_provider="meta", wonder_threshold=0, wonder_model=""))
+    seen = {}
+    monkeypatch.setattr(orchestrator.vision, "describe_image",
+                        lambda b, m=None: seen.update(bytes=b, mime=m) or {"kind": "other", "extracted_text": "0857", "notes": ""})
+    p = fake([_resp(tool_calls=[_call("segment_region", '{"target": "phone_number"}')]), _resp(_verdict_json())])
+    orchestrator.analyze(Input(type="image", media_bytes=img, mime="image/png"))
+    out = json.loads(p.calls[1]["messages"][-1]["content"])
+    assert out["dibaca_dari"] == "potongan SAM" and seen["bytes"] != img and seen["mime"] == "image/png"
+
+
+def test_segment_region_not_offered_for_text(fake):
+    p = fake([_resp(_verdict_json())])
+    orchestrator.analyze(Input(type="text", text="CS BCA, kirim OTP"))
+    assert "segment_region" not in [t["function"]["name"] for t in p.calls[0]["tools"]]
+
+
+# --------------------------------------------------------------------------- escalation: same tool results, video
+
+class _ScriptedProvider:
+    supports_images = True
+
+    def __init__(self, name, model, script, log):
+        self.name, self.model, self.script, self.log = name, model, list(script), log
+
+    def chat(self, messages, tools=None, response_format=None):
+        self.log.append({"who": self.name, "messages": list(messages), "tools": tools, "response_format": response_format})
+        return self.script.pop(0)
+
+
+def _install(monkeypatch, spark_script, wonder_script=None, wonder_exc=None):
+    log = []
+    spark = _ScriptedProvider("meta", "muse-spark-1.3", spark_script, log)
+    wonder = _ScriptedProvider("wonder", "muse-wonder-1.0", wonder_script or [], log)
+    if wonder_exc:
+        def boom(*a, **k):
+            log.append({"who": "wonder"})
+            raise wonder_exc
+        wonder.chat = boom
+    monkeypatch.setattr(orchestrator, "get_provider", lambda name=None: wonder if name == "wonder" else spark)
+    monkeypatch.setattr(orchestrator, "fallback_name", lambda primary: None)
+    return log
+
+
+def test_escalation_reuses_tool_results(monkeypatch):
+    runs = []
+    monkeypatch.setattr(orchestrator.links, "check_link", lambda url: runs.append(url) or
+                        {"url": url, "domain": "bri-tarif.site", "redirects": 0, "flags": ["meniru_bri"]})
+    log = _install(monkeypatch,
+                   [_resp(tool_calls=[SimpleNamespace(id="c1", function=SimpleNamespace(name="check_link", arguments='{"url": "https://bri-tarif.site"}'))]),
+                    _resp(_verdict_json(risk="WASPADA", category="cs_bank_palsu", confidence=0.5, alert_guardian=False))],
+                   [_resp(_verdict_json(risk="BAHAYA", category="cs_bank_palsu", confidence=0.92))])
+    r = orchestrator.analyze(Input(type="text", text="Tarif BRI naik, isi form https://bri-tarif.site"))
+    assert runs == ["https://bri-tarif.site"]  # the tool ran once, for Spark only
+    w = [c for c in log if c["who"] == "wonder"][0]
+    assert w["tools"] is None and w["response_format"]["type"] == "json_schema"  # final verdict only
+    assert any(m.get("role") == "tool" and "meniru_bri" in m["content"] for m in w["messages"])  # same tool results
+    assert not any(m.get("role") == "assistant" and "WASPADA" in str(m.get("content")) for m in w["messages"])  # not anchored on Spark
+    assert r.verdict.risk == "BAHAYA" and r.model == "muse-wonder-1.0"
+    assert "escalated: spark → wonder" in r.tools_used and r.escalation["reason"] == "low_confidence"
+    assert r.conversation is None  # history isn't kept after the check
+
+
+def test_video_always_escalates(monkeypatch):
+    monkeypatch.setattr(orchestrator.transcribe, "transcribe_audio",
+                        lambda b, m=None: {"transcript": "Ini Polda, jangan tutup telepon, transfer sekarang", "duration_ms": 9000})
+    log = _install(monkeypatch, [_resp(_verdict_json(category="aparat_palsu", confidence=0.95))],
+                   [_resp(_verdict_json(category="aparat_palsu", confidence=0.97))])
+    r = orchestrator.analyze(Input(type="video", media_bytes=b"mp4", mime="video/mp4"))
+    assert [c["who"] for c in log] == ["meta", "wonder"] and r.escalation["reason"] == "video"
+    assert "escalated: spark → wonder" in r.tools_used
+
+
+def test_confident_text_is_not_escalated_at_0_6(monkeypatch):
+    log = _install(monkeypatch, [_resp(_verdict_json(confidence=0.6))])
+    r = orchestrator.analyze(Input(type="text", text="CS BCA minta OTP"))
+    assert [c["who"] for c in log] == ["meta"] and r.escalation is None
+    assert not any(t.startswith("escalated") for t in r.tools_used)
+
+
+def test_escalation_timeout_keeps_spark(monkeypatch):
+    import httpx
+    from openai import APITimeoutError
+    log = _install(monkeypatch, [_resp(_verdict_json(risk="WASPADA", category="lainnya", confidence=0.4, alert_guardian=False))],
+                   wonder_exc=APITimeoutError(request=httpx.Request("POST", "http://x")))
+    r = orchestrator.analyze(Input(type="text", text="halo"))
+    assert [c["who"] for c in log] == ["meta", "wonder"]
+    assert r.verdict.risk == "WASPADA" and r.model == "muse-spark-1.3"
+    assert not any(t.startswith("escalated") for t in r.tools_used) and r.escalation["wonder"] is None

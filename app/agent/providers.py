@@ -1,7 +1,8 @@
 """Provider switch: one OpenAI-compatible client, base URL per provider.
 
 meta      -> Muse Spark via https://api.meta.ai/v1 (default)
-wonder    -> Muse Wonder, same endpoint; used as a second opinion when Spark is unsure
+wonder    -> MUSE_ESCALATION_MODEL (Muse Wonder), same endpoint; writes the final verdict when Spark is
+             unsure or the input is a video
 fireworks -> Llama via Fireworks (optional fallback)
 """
 from dataclasses import dataclass
@@ -52,7 +53,8 @@ def get_provider(name: str | None = None) -> Provider:
         return Provider(
             name="wonder",
             model=settings.wonder_model,
-            client=OpenAI(api_key=settings.meta_api_key, base_url=settings.meta_base_url, timeout=30, max_retries=0),
+            client=OpenAI(api_key=settings.meta_api_key, base_url=settings.meta_base_url,
+                          timeout=settings.wonder_timeout, max_retries=0),
             supports_reasoning_effort=True,
             supports_images=True,
             reasoning_effort=settings.wonder_reasoning_effort,

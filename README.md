@@ -116,8 +116,18 @@ The plain-text WhatsApp phrases work too.
 | **Muse Spark** (`muse-spark-1.3`) via the Meta Model API | The agent brain: picks and calls tools, returns a structured verdict JSON, answers follow-ups |
 | **Muse Spark image input** | Reading screenshots, transfer proofs and QRIS photos in the same verdict call |
 | **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Forwarded voice notes and video call recordings → text (Indonesian language bias) |
-| **Muse Wonder** (`muse-wonder-1.0`) | Second opinion: when Spark's confidence is below 0.7 (or it can't answer), the same request with tools and image goes to Wonder once. Footer: "Muse Spark → Muse Wonder (cek ulang)". Live: Spark 0.65 → Wonder, about 13 s instead of about 5 s |
-| **SAM 3.1** (`sam-3.1`) | When Muse sees a QR code that the local scan missed (a small, blurry QRIS sticker in a 12 MP warung photo), `decode_qris` asks SAM for "QR code", crops it and decodes the crop |
+| **Muse Wonder** (`MUSE_ESCALATION_MODEL=muse-wonder-1.0`) | Escalation:
+- **When:** Spark's confidence is below 0.6, the input is a **video**, or Spark gave no valid verdict.
+- **How:** Wonder writes the final verdict from the same content and Spark's tool results; no tools are re-run.
+- **Visible in:** `tools_used` ("escalated: spark → wonder"), the footer and 🔎 Detail.
+- **On error or timeout:** Spark's verdict is kept.
+- **Live:** about 7 s for text with a link check, about 15 s for a video. |
+| **SAM 3.1** (`sam-3.1`, Responses API) | Model-callable tool `segment_region(target = qr_code \| phone_number \| bank_account)`:
+- SAM finds the area and we crop it.
+- A QR crop goes to `decode_qris`; a number crop is read by Muse vision.
+- If SAM fails or finds nothing, the tool reads the full image.
+- `decode_qris` hints at it when the local scan misses a visible QR.
+- Live: Muse called it on its own for a small QRIS sticker in a 12 MP photo, and the crop decoded. |
 | **WhatsApp Cloud API** | Second channel: webhook, signature check, replies, `guardian_alert` utility template |
 
 Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure. The footer names the model that actually answered. `LLM_PROVIDER=fireworks` / `FIREWORKS_API_KEY` exist only as a dev-time fallback for API outages. The fallback is off unless that key is set (it isn't for the demo), and if it ever answers, the reply footer names the model with "(cadangan)".

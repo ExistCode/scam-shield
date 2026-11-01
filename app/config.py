@@ -31,10 +31,13 @@ class Settings:
     muse_reasoning_effort: str = field(default_factory=lambda: _env("MUSE_REASONING_EFFORT", "low"))
     asr_model: str = field(default_factory=lambda: _env("ASR_MODEL", "muse-voice-transcribe-1.0"))
     llm_provider: str = field(default_factory=lambda: _env("LLM_PROVIDER", "meta").lower())
-    # Muse Wonder: second opinion when Muse Spark is unsure (confidence below the threshold). 0 = off.
-    wonder_model: str = field(default_factory=lambda: _env("WONDER_MODEL", "muse-wonder-1.0"))
-    wonder_reasoning_effort: str = field(default_factory=lambda: _env("WONDER_REASONING_EFFORT", "low"))
-    wonder_threshold: float = field(default_factory=lambda: float(_env("WONDER_CONFIDENCE_THRESHOLD", "0.7")))
+    # Escalation: after Muse Spark answers, re-run the final verdict with this model (same tool results)
+    # when confidence < MUSE_ESCALATION_THRESHOLD or the input is a video. Exact id from dev.meta.ai/docs/models.
+    # Empty = off.
+    wonder_model: str = field(default_factory=lambda: _env("MUSE_ESCALATION_MODEL", "muse-wonder-1.0"))
+    wonder_reasoning_effort: str = field(default_factory=lambda: _env("MUSE_ESCALATION_REASONING_EFFORT", "low"))
+    wonder_threshold: float = field(default_factory=lambda: float(_env("MUSE_ESCALATION_THRESHOLD", "0.6")))
+    wonder_timeout: float = field(default_factory=lambda: float(_env("MUSE_ESCALATION_TIMEOUT", "30")))
     fireworks_api_key: str = field(default_factory=lambda: _env("FIREWORKS_API_KEY"))
     fireworks_base_url: str = field(
         default_factory=lambda: _env("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1")

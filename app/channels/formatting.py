@@ -65,7 +65,7 @@ def tools_footer(result: AnalysisResult) -> str:
     steps = []
     if "transcribe_audio" in used:
         steps.append("Muse Voice")
-    if result.provider == "wonder":  # Spark was unsure, Muse Wonder gave the final answer
+    if result.provider == "wonder":  # escalated: Wonder wrote the final verdict from Spark's tool results
         model = "Muse Spark → Muse Wonder (cek ulang)"
     elif result.provider == "meta":  # name the model that actually answered (MUSE_MODEL can be Wonder)
         model = "Muse Wonder" if (result.model or "").startswith("muse-wonder") else "Muse Spark"
@@ -77,7 +77,7 @@ def tools_footer(result: AnalysisResult) -> str:
         if used & {"muse_vision", "describe_image"}:
             model += " (baca gambar)"
         steps.append(model)
-    for tool, label in (("sam_crop", "SAM 3.1 (cari QR)"), ("decode_qris", "baca QRIS"), ("check_link", "cek link"), ("safe_word_check", "cek kata aman"),
+    for tool, label in (("segment_region", "SAM 3.1 (potong area)"), ("decode_qris", "baca QRIS"), ("check_link", "cek link"), ("safe_word_check", "cek kata aman"),
                         ("aduannomor_lookup", "cek AduanNomor")):
         if tool in used:
             steps.append(label)

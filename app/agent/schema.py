@@ -102,4 +102,5 @@ class AnalysisResult:
     overrides: list[dict] = field(default_factory=list)  # [{"rule", "field", "from", "to"}]
     image_mode: str | None = None  # "single_call" | "two_step"
     escalation: dict | None = None  # Muse Wonder second opinion: {"spark": {...}, "wonder": {...} | None}
+    conversation: list | None = None  # Spark's messages incl. tool results (in memory only, for escalation)
     qris_precheck: dict | None = None  # local QR scan of an image; the model reads it via decode_qris

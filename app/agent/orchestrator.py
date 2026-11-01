@@ -70,8 +70,26 @@ QRIS_TOOL = {
 }
 
 
+SEGMENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "segment_region",
+        "description": "SAM 3.1: cari dan potong satu bagian dari gambar terlampir, lalu baca potongan itu. "
+        "target=qr_code: potong kode QR lalu baca QRIS-nya (pakai kalau decode_qris tidak menemukan QR padahal "
+        "terlihat ada, misalnya QR kecil di foto besar). target=phone_number atau bank_account: potong area "
+        "nomor HP atau nomor rekening lalu baca teksnya (pakai kalau nomornya kecil/buram).",
+        "parameters": {
+            "type": "object",
+            "properties": {"target": {"type": "string", "enum": ["qr_code", "phone_number", "bank_account"]}},
+            "required": ["target"],
+        },
+    },
+}
+_SAM_PHRASE = {"qr_code": "QR code", "phone_number": "phone number", "bank_account": "bank account number"}
+
+
 def _tool_specs(inp: Input) -> list:
-    return TOOL_SPECS + ([QRIS_TOOL] if inp.type == "image" and inp.media_bytes else [])
+    return TOOL_SPECS + ([QRIS_TOOL, SEGMENT_TOOL] if inp.type == "image" and inp.media_bytes else [])
 
 
 def _qris_for_model(q: dict | None) -> dict:
@@ -168,34 +186,65 @@ def _run_tool(name: str, args: dict, inp: Input, result: AnalysisResult) -> dict
     if name == "safe_word_check":
         return safe_word.safe_word_check(inp.user_id)
     if name == "decode_qris" and inp.type == "image" and inp.media_bytes:
-        if not result.qris_precheck and "sam_crop" not in result.tool_outputs:
-            result.qris_precheck = _sam_qris(inp, result)
         if result.qris_precheck:
             result.tool_outputs["decode_qris"] = result.qris_precheck
-        return _qris_for_model(result.qris_precheck)
+        out = _qris_for_model(result.qris_precheck)
+        if not result.qris_precheck:
+            out["saran"] = "Kalau di gambar terlihat ada kode QR, panggil segment_region dengan target qr_code."
+        return out
+    if name == "segment_region" and inp.type == "image" and inp.media_bytes:
+        return _segment_region(str(args.get("target", "")), inp, result)
     return {"error": f"unknown tool {name}"}
 
 
-def _sam_qris(inp: Input, result: AnalysisResult) -> dict | None:
-    """The model saw a QR code but the local scan missed it (small sticker in a big photo): ask SAM 3.1
-    where the QR code is, crop it, and decode the crop."""
-    if not settings.meta_api_key:
-        return None
-    try:
-        boxes = segment.find_boxes(inp.media_bytes, "QR code")
-    except Exception as exc:
-        log.warning("sam-3.1 failed: %s", exc)
-        result.tool_outputs["sam_crop"] = {"error": "failed"}
-        return None
-    result.tool_outputs["sam_crop"] = {"boxes": [{k: round(v, 2) for k, v in b.items()} for b in boxes[:3]]}
-    if boxes and "sam_crop" not in result.tools_used:
-        result.tools_used.append("sam_crop")
-    for box in boxes[:3]:
-        q = qris.decode_qris(segment.crop(inp.media_bytes, box))
+def _segment_region(target: str, inp: Input, result: AnalysisResult) -> dict:
+    """segment_region tool: SAM 3.1 finds the region, we crop it, then decode_qris (QR) or Muse vision
+    (phone / account text) reads the crop. If SAM fails or finds nothing, read the full image instead."""
+    if target not in _SAM_PHRASE:
+        return {"error": "target harus qr_code, phone_number, atau bank_account"}
+    boxes, sam = [], "tidak dipanggil"
+    if settings.meta_api_key:
+        try:
+            boxes = segment.find_boxes(inp.media_bytes, _SAM_PHRASE[target])
+            sam = f"{len(boxes)} area ditemukan" if boxes else "tidak menemukan area"
+        except Exception as exc:
+            log.warning("sam-3.1 failed: %s", exc)
+            sam = "gagal"
+    out: dict = {"target": target, "sam": sam,
+                 "boxes": [{k: round(v, 2) for k, v in b.items()} for b in boxes[:3]]}
+
+    if target == "qr_code":
+        q = None
+        for box in boxes[:3]:
+            q = qris.decode_qris(segment.crop(inp.media_bytes, box))
+            if q:
+                out["dibaca_dari"] = "potongan SAM"
+                break
+        if not q:
+            q = result.qris_precheck or qris.decode_qris(inp.media_bytes)
+            out["dibaca_dari"] = "gambar penuh"
         if q:
-            result.tool_outputs["sam_crop"]["decoded"] = True
-            return q
-    return None
+            result.qris_precheck = q
+            result.tool_outputs["decode_qris"] = q
+            if "decode_qris" not in result.tools_used:
+                result.tools_used.append("decode_qris")
+        out["qris"] = _qris_for_model(q)
+        return out
+
+    # phone_number / bank_account: Muse vision reads the crop (or the full image as fallback)
+    image = segment.crop(inp.media_bytes, boxes[0], pad=0.25) if boxes else inp.media_bytes
+    out["dibaca_dari"] = "potongan SAM" if boxes else "gambar penuh"
+    if not settings.meta_api_key:
+        out["teks"] = ""
+        return out
+    try:
+        v = vision.describe_image(image, "image/png" if boxes else inp.mime)
+        out["teks"] = v.get("extracted_text", "")[:400]
+    except Exception as exc:
+        log.warning("reading %s crop failed: %s", target, exc)
+        out["teks"] = ""
+        out["error"] = "teks tidak terbaca"
+    return out
 
 
 def _parse_verdict(content: str | None) -> Verdict | None:
@@ -236,6 +285,7 @@ def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: Ana
                       {"role": "user", "content": user_msg}]
     called: set[str] = set()
 
+    result.conversation = messages  # system + user + tool calls/results; reused by the escalation step
     for _step in range(settings.max_tool_steps):
         resp = provider.chat(messages, tools=_tool_specs(inp))
         msg = resp.choices[0].message
@@ -264,10 +314,48 @@ def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: Ana
                 result.tool_outputs.setdefault(tc.function.name, []).append(out)
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(out, ensure_ascii=False)})
 
-    # Repair / force a final structured answer once.
-    messages.append({"role": "user", "content": JSON_REPAIR_PROMPT})
-    resp = _chat_json(provider, messages)
+    # Repair / force a final structured answer once (on a copy: the escalation reuses the clean history).
+    result.conversation = list(messages)
+    resp = _chat_json(provider, messages + [{"role": "user", "content": JSON_REPAIR_PROMPT}])
     return _parse_verdict(resp.choices[0].message.content)
+
+
+ESCALATION_PROMPT = (
+    "Semua hasil tool sudah ada di atas; jangan panggil tool lagi. Berdasarkan konten dan hasil tool itu, "
+    "berikan penilaian akhir. Balas HANYA dengan objek JSON dengan field: risk, category, confidence, reason, "
+    "next_steps (1-3 item), alert_guardian, reply_text, scam_type, money_sent, scam_phone_numbers, "
+    "scam_account_numbers."
+)
+ESCALATED = "escalated: spark → wonder"
+
+
+def _flatten_tools(messages: list) -> list:
+    """Same history with tool calls/results turned into plain text, for APIs that reject tool messages
+    without tool definitions."""
+    out = []
+    for m in messages:
+        if m.get("role") == "tool":
+            out.append({"role": "user", "content": "Hasil tool: " + str(m.get("content"))})
+        elif m.get("role") == "assistant" and m.get("tool_calls"):
+            names = ", ".join(tc["function"]["name"] for tc in m["tool_calls"])
+            out.append({"role": "assistant", "content": f"(memanggil tool: {names})"})
+        else:
+            out.append(m)
+    return out
+
+
+def _escalate(inp: Input, result: AnalysisResult, conversation: list) -> Verdict | None:
+    """Final verdict from the escalation model, on the same content and tool results. No tools re-run."""
+    wonder = get_provider("wonder")
+    msgs = list(conversation) + [{"role": "user", "content": ESCALATION_PROMPT}]
+    try:
+        resp = _chat_json(wonder, msgs)
+    except BadRequestError:
+        resp = _chat_json(wonder, _flatten_tools(conversation) + [{"role": "user", "content": ESCALATION_PROMPT}])
+    v = _parse_verdict(resp.choices[0].message.content)
+    if v:
+        result.provider, result.model = wonder.name, wonder.model
+    return v
 
 
 # --------------------------------------------------------------------------- safety floors
@@ -506,10 +594,20 @@ def trace(result: AnalysisResult) -> list[dict]:
         dest = link.get("domain") or link.get("error") or "?"
         out.append({"step": "check_link", "input": _short(link.get("url"), 50),
                     "result": f"{dest} ({link.get('redirects', 0)} redirect); {flags}"})
-    if t.get("sam_crop"):
-        s = t["sam_crop"]
-        res = "gagal" if s.get("error") else f"{len(s.get('boxes') or [])} kotak QR" + (", crop terbaca" if s.get("decoded") else "")
-        out.append({"step": "SAM 3.1", "input": '"QR code"', "result": res})
+    for s in t.get("segment_region", []):
+        if s.get("target") == "qr_code":
+            q = (s.get("qris") or {})
+            read = f"QRIS {q.get('merchant_name')}" if q.get("found") else "QR tidak terbaca"
+        else:
+            read = f'"{_short(s.get("teks"), 50)}"' if s.get("teks") else "teks tidak terbaca"
+        out.append({"step": "SAM 3.1 segment_region", "input": s.get("target"),
+                    "result": f"{s.get('sam')}; dibaca dari {s.get('dibaca_dari')}: {read}"})
+    if result.escalation:
+        sp, wo = result.escalation.get("spark") or {}, result.escalation.get("wonder")
+        why = {"video": "input video", "low_confidence": "keyakinan rendah", "no_verdict": "Spark tidak menjawab"}
+        out.append({"step": ESCALATED, "input": why.get(result.escalation.get("reason"), result.escalation.get("reason")),
+                    "result": (f"Spark {sp.get('risk')} {sp.get('confidence')} → Wonder {wo['risk']} {wo['confidence']}"
+                               if wo and sp else "gagal, jawaban Spark dipakai")})
     if t.get("decode_qris"):
         q = t["decode_qris"]
         crc = "CRC valid" if q.get("crc_valid") else "CRC TIDAK valid"
@@ -577,24 +675,28 @@ def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
             log.error("provider %s failed: %s", name, exc)
             continue
 
-    # Muse Wonder escalation: when Spark is unsure (or couldn't answer), ask the bigger model once.
-    if result.provider == "meta" and not (result.model or "").startswith("muse-wonder") \
-            and settings.wonder_threshold > 0 and (
-            verdict is None or verdict.confidence < settings.wonder_threshold):
+    # Escalation: Spark unsure (confidence < threshold), no valid verdict, or a video (the riskiest input:
+    # fake police / family video calls). The escalation model writes the final verdict from the same
+    # content and tool results. Any error or timeout keeps Spark's verdict.
+    reason = None
+    if (result.provider == "meta" and result.conversation and settings.wonder_model
+            and result.model != settings.wonder_model):
+        reason = ("no_verdict" if verdict is None else "video" if inp.type == "video"
+                  else "low_confidence" if verdict.confidence < settings.wonder_threshold else None)
+    if reason:
         spark = ({"risk": verdict.risk, "category": verdict.category, "confidence": verdict.confidence,
                   "model": result.model} if verdict else None)
-        result.escalation = {"reason": "low_confidence" if verdict else "no_verdict", "spark": spark, "wonder": None}
+        result.escalation = {"reason": reason, "spark": spark, "wonder": None}
         try:
-            wonder = get_provider("wonder")
-            v2 = run(wonder)
+            v2 = _escalate(inp, result, result.conversation)
             if v2:
                 result.escalation["wonder"] = {"risk": v2.risk, "category": v2.category, "confidence": v2.confidence}
                 verdict = v2
-                result.provider, result.model = wonder.name, wonder.model
-                if "muse_wonder" not in result.tools_used:
-                    result.tools_used.append("muse_wonder")
-        except Exception as exc:  # Wonder is an extra: keep Spark's verdict
-            log.warning("muse wonder escalation failed: %s", exc)
+                if ESCALATED not in result.tools_used:
+                    result.tools_used.append(ESCALATED)
+        except Exception as exc:  # timeout / API error: keep Spark's verdict
+            log.warning("escalation to %s failed: %s", settings.wonder_model, exc)
+    result.conversation = None  # don't keep media/history around
 
     result.verdict = apply_safety(verdict or FALLBACK_VERDICT, inp, result)
     try:
