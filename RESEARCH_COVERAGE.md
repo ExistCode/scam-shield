@@ -43,7 +43,13 @@ AMAN verdicts get no contacts.
 
 **Not used, on purpose:**
 - Other banks' call centers (Mandiri 14000, BRI 1500017, …): not verified yet (TODO in `contacts.py`).
-- cekrekening.id, aduankonten.id, SIPASTI, patrolisiber.id: not on the verified list.
+- aduankonten.id, SIPASTI, patrolisiber.id: not on the verified list.
+- cekrekening.id is used as **links only** (check + report pages). It's behind a Cloudflare bot check with no public API, so there's no live lookup. The third-party `cekrekening.github.io` (shows holder names) is never used.
+
+**Optional public lookup:** AduanNomor.id's own "cek nomor" form endpoint gives a `reported_count` per phone number.
+- It's called with a 3 s timeout and cached; failures are silent.
+- The count is shown by code only when it's above 0.
+- It's described as a public lookup, not an official Komdigi API.
 
 ## 5. Demo and test coverage
 
@@ -51,7 +57,7 @@ AMAN verdicts get no contacts.
 |---|---|
 | Fake call / family impersonation: voice → ASR → verdict + call-back + guardian alert | ✅ voice + video, safe-word check, guardian alert (and an emergency alert if the parent says they already paid) |
 | APK: instant bahaya + "already installed?" steps | ✅ |
-| Belanja online: screenshot + account number | ✅ (account flagged; cekrekening.id left out until verified) |
+| Belanja online: screenshot + account number | ✅ step "Cek dulu rekening … di cekrekening.id/cek-rekening sebelum transfer" + report link |
 | QRIS swap | ✅ shop + mosque |
 | Phishing / hadiah palsu / investment, lookalike domains | ✅ |
 | AMAN controls (real J&T update, family chat, legit bank promo) | ✅ `aman_jnt_asli`, `aman_keluarga`, `aman_promo_bank`, `aman_ojk_info`, `aman_arisan`, `aman_ultah`, plus strict AMAN `aman_posyandu`, `aman_cucu_sampai`, `aman_driver_gofood`, and `aman_tagihan_pln`, `aman_otp_sendiri` |

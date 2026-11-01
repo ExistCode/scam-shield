@@ -51,7 +51,14 @@ Telegram / WhatsApp ─webhook─▶ FastAPI ─▶ "🔎 Sedang dicek…"
    📞 Polisi: 110
    ✅ Hans udah aku kabarin ya, Mama.
    ```
-9. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
+9. **Number and account checks.**
+   - **Phone numbers:** an optional **public lookup** on AduanNomor.id: the same check the site's own "cek nomor" form runs. It is *not* an official Komdigi API or a partnership.
+     - 3 s timeout, cached per number, silent on any failure.
+     - If the number was reported, code (not the model) writes "Nomor ini sudah dilaporkan 12x di AduanNomor.id (Komdigi)."
+     - A real captured response in `app/data/aduannomor_fixtures.json` is the fallback if the server's IP gets blocked. Add one with `python -m app.tools.aduannomor capture 08xx`. `ADUANNOMOR_MODE=live|fixture|off`.
+   - **Bank accounts:** no live lookup, because cekrekening.id sits behind a bot check and has no public API. The reply links to https://cekrekening.id/cek-rekening and https://cekrekening.id/laporkan-rekening.
+   - **Our own count:** a `reported_numbers` table (digits only) adds "sudah 3x dilaporkan pengguna Cek Dulu". It counts distinct *other* users.
+10. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
 
 ## Channels
 
@@ -168,6 +175,6 @@ Submit in WhatsApp Manager, category **Utility**, language `id`, name `guardian_
 
 ## Roadmap
 
-APK static checks, SAM 3.1, Muse Wonder escalation for low-confidence cases, IASC report filing, pgvector similar-case lookup, Prompt Guard, more regional languages.
+**Official Komdigi / OJK API integration** (number and account checks; today we use a public lookup and links), APK static checks, SAM 3.1, Muse Wonder escalation for low-confidence cases, IASC report filing, pgvector similar-case lookup, Prompt Guard, more regional languages.
 
 *Cek dulu, baru transfer.*
