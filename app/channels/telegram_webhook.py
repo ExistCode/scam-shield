@@ -44,11 +44,9 @@ WELCOME_BACK = (
     "Ketik /bantuan buat lihat perintah lainnya."
 )
 
-# Sent after the first verdict, when someone's very first message was something to check.
-FIRST_TIME_NOTE = (
-    "Aku *Ronda* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
-    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
-)
+# Sent after the very first verdict: just ask what to call them. The intro and the privacy line come
+# after they answer (panggilan_saved), so the verdict isn't buried under text.
+FIRST_TIME_NOTE = persona.ASK_PANGGILAN
 
 HELP = (
     "*Cara pakai Ronda*\n"
@@ -349,13 +347,12 @@ def process_update(update: dict) -> None:
         forwarded = bool(msg.get("forward_origin"))
 
         # Onboarding answer: "Mau aku panggil apa?" -> "Mama"
-        if text and not forwarded and profile.get("awaiting") == "panggilan" \
-                and not repo.last_case_for(user.id, followup.WINDOW):
-            name = persona.parse_panggilan(text)
+        if text and not forwarded and profile.get("awaiting") == "panggilan":
+            name = persona.parse_panggilan(text, strict=bool(repo.last_case_for(user.id, followup.WINDOW)))
             if name:
                 repo.set_panggilan(user.id, name)
                 repo.set_consent(user.id)
-                telegram_bot.send_text(chat_id, persona.panggilan_saved(name, "/daftar_wali"), reply_to=mid)
+                telegram_bot.send_text(chat_id, persona.panggilan_saved(name, "/daftar_wali", CONSENT), reply_to=mid)
                 return
 
         # Follow-up to a recent verdict ("terus gimana?", "aku sudah transfer")? Answer in context.

@@ -41,8 +41,9 @@ CONSENT = ("_Pesan yang diteruskan aku simpan sebagai teks buat pengecekan; foto
 WELCOME = ("Halo! Aku *Ronda* 👋\n\nKalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* "
            "aja ke sini. Nanti aku bilang itu penipuan atau bukan, dan harus ngapain.\n\n"
            + persona.ASK_PANGGILAN + "\n\n" + CONSENT)
-FIRST_TIME_NOTE = ("Aku *Ronda* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
-                   + persona.ASK_PANGGILAN + "\n\n" + CONSENT)
+# Sent after the very first verdict: just ask what to call them. The intro and the privacy line come
+# after they answer (panggilan_saved), so the verdict isn't buried under text.
+FIRST_TIME_NOTE = persona.ASK_PANGGILAN
 HELP = ("*Cara pakai Ronda*\n• Terusin pesan/foto/suara yang aneh ke sini.\n"
         "• *panggil <nama>* : ganti panggilanmu\n• *daftar wali anak Hans* : daftarin keluarga jadi wali\n"
         "• *kata aman <petunjuk>* : simpan petunjuk kata aman keluarga\n• *gaya santai* / *gaya sopan*\n"
@@ -231,11 +232,11 @@ def process(req: SendReq) -> None:
                 push(pid, reply if (not first_time or reply == WELCOME) else reply + "\n\n" + CONSENT)
                 repo.set_consent(user.id)
                 return
-            if profile.get("awaiting") == "panggilan" and not repo.last_case_for(user.id, followup.WINDOW):
-                name = persona.parse_panggilan(text)
+            if profile.get("awaiting") == "panggilan":
+                name = persona.parse_panggilan(text, strict=bool(repo.last_case_for(user.id, followup.WINDOW)))
                 if name:
                     repo.set_panggilan(user.id, name)
-                    push(pid, persona.panggilan_saved(name, HINT))
+                    push(pid, persona.panggilan_saved(name, HINT, CONSENT))
                     return
             last = None if followup.looks_like_new_content(text) else repo.last_case_for(user.id, followup.WINDOW)
             if last:

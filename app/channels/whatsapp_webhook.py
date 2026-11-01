@@ -38,10 +38,9 @@ WELCOME = (
     + persona.ASK_PANGGILAN + "\n\n" + CONSENT
 )
 
-FIRST_TIME_NOTE = (
-    "Aku *Ronda* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
-    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
-)
+# Sent after the very first verdict: just ask what to call them. The intro and the privacy line come
+# after they answer (panggilan_saved), so the verdict isn't buried under text.
+FIRST_TIME_NOTE = persona.ASK_PANGGILAN
 
 HELP = (
     "*Cara pakai Ronda*\n"
@@ -244,12 +243,11 @@ def process_message(msg: dict, profile_name: str | None) -> None:
             forwarded = (msg.get("context") or {}).get("forwarded") or (msg.get("context") or {}).get("frequently_forwarded")
             profile = repo.get_profile(user.id)
             # Onboarding answer: "Mau aku panggil apa?" -> "Mama"
-            if not forwarded and profile.get("awaiting") == "panggilan" \
-                    and not repo.last_case_for(user.id, followup.WINDOW):
-                name = persona.parse_panggilan(body)
+            if not forwarded and profile.get("awaiting") == "panggilan":
+                name = persona.parse_panggilan(body, strict=bool(repo.last_case_for(user.id, followup.WINDOW)))
                 if name:
                     repo.set_panggilan(user.id, name)
-                    whatsapp_sender.send_text(sender, persona.panggilan_saved(name, "*daftar wali 08xx anak Hans*"),
+                    whatsapp_sender.send_text(sender, persona.panggilan_saved(name, "*daftar wali 08xx anak Hans*", CONSENT),
                                               reply_to=mid)
                     return
             if not forwarded and _handle_followup(body, user, sender, mid, profile):

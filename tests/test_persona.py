@@ -164,3 +164,13 @@ def test_live_personal_voice(text):
     assert "Mama" in r.verdict.reply_text, "Muse should use the panggilan itself"
     assert not re.search(r"\b(Ibu|Bapak|Anda)\b", model_text), model_text
     assert "Hans" in " ".join(r.verdict.next_steps + [r.verdict.reply_text]), "Muse should name the family member"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Mama", "Mama"), ("bu sri", "Bu Sri"), ("Om Budi", "Om Budi"), ("Sri", "Sri"), ("panggil aja Oma", "Oma"),
+    ("terus gimana", None), ("terus gimana?", None), ("beneran?", None), ("beneran", None),
+    ("aduh takut", None), ("dia punya NIK ku", None), ("aku udah transfer", None), ("jadi aman", None),
+])
+def test_parse_panggilan_strict_after_a_verdict(text, expected):
+    """Right after a verdict an answer to "mau aku panggil apa?" must not swallow follow-up questions."""
+    assert persona.parse_panggilan(text, strict=True) == expected

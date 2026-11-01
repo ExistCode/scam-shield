@@ -98,8 +98,13 @@ def test_first_message_gets_verdict_before_intro(client, monkeypatch):
     assert len(sent) == 3
     assert "Sedang dicek" in sent[0]                  # placeholder right away
     assert "*BAHAYA*" in sent[1]                      # then the answer
-    assert "Ronda" in sent[2] and "setuju" in sent[2]  # intro + consent after
-    assert "Halo, saya" not in sent[1]
+    assert sent[2] == "Oh ya, mau aku panggil apa? (misalnya: Mama, Bu Sri, Om Budi)"  # only the question
+    assert "setuju" not in sent[2] and "Aku *Ronda*" not in sent[2]
+
+    upd = {"update_id": 9003, "message": {"message_id": 9004, "chat": {"id": 5559999, "type": "private"},
+           "from": {"id": 5559999, "first_name": "Ibu"}, "text": "Mama"}}
+    client.post("/telegram/webhook", json=upd, headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
+    assert "aku panggil *Mama*" in sent[3] and "setuju" in sent[3]  # privacy line comes with the answer
 
 
 def test_tools_footer():

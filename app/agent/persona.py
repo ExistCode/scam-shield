@@ -102,19 +102,32 @@ def address(text: str, profile: dict | None) -> str:
 # --------------------------------------------------------------------------- onboarding
 
 _NOT_A_NAME = re.compile(r"(?i)^(ok(e|ay)?|sip|siap|ya|iya|y|ga|gak|nggak|enggak|tidak|makasih|terima\s*kasih|"
-                         r"thanks?|halo|hai|hi|hello|test|tes|apa|gimana|kenapa)$")
+                         r"thanks?|halo|hai|hi|hello|test|tes|apa|gimana|kenapa|beneran|serius|masa|oh|wah|aduh|"
+                         r"duh|waduh|takut|terus|trus|jadi|lalu|udah|sudah|belum|baik|bagus|mantap|aman|bahaya|"
+                         r"penipuan|hoaks|kok|loh|lho|hah|astaga|ya\s*ampun|alhamdulillah)$")
+# Forms of address: right after a verdict we only accept answers that start with one of these
+# (or a single plain word), so a follow-up like "terus gimana" isn't taken as a name.
+_HONORIFIC = re.compile(r"(?i)^(mama|mami|mamah|mak|emak|ibu|bu|bunda|umi|papa|papi|bapak|pak|ayah|abah|abi|om|tante|"
+                        r"oma|opa|nenek|kakek|eyang|uti|kung|mbah|bude|pakde|bulik|paklik|kak|kakak|mas|mbak|"
+                        r"cik|koh|ci|ko|engkong|ama|teteh|aa|akang|uda|uni|ompung|inang)\b")
 _LEADING = re.compile(r"(?i)^(panggil(\s+(aku|saya))?(\s+(aja|saja))?|panggilan(nya)?|nama(ku|\s+saya)?|"
                       r"aku|saya|dipanggil)\s*[:,]?\s+")
 
 
-def parse_panggilan(text: str) -> str | None:
-    """'Mama', 'panggil aja Bu Sri', 'Om Budi.' -> a clean panggilan, or None if it doesn't look like one."""
+def parse_panggilan(text: str, strict: bool = False) -> str | None:
+    """'Mama', 'panggil aja Bu Sri', 'Om Budi.' -> a clean panggilan, or None if it doesn't look like one.
+
+    strict=True (just after a verdict, when the message could be a follow-up question): only accept a
+    form of address ("Mama", "Bu Sri") or a single plain word ("Sri"), never a question."""
     t = (text or "").strip()
-    if not t or len(t) > 40 or re.search(r"\d|https?://|www\.|@", t) or t.startswith("/"):
+    if not t or len(t) > 40 or re.search(r"\d|https?://|www\.|@|\?", t) or t.startswith("/"):
         return None
+    explicit = bool(_LEADING.match(t))  # "panggil aja ...", "nama saya ..."
     t = _LEADING.sub("", t).strip(" .!,~😊🙂🙏")
     words = t.split()
-    if not words or len(words) > 3 or _NOT_A_NAME.match(t):
+    if not words or len(words) > 3 or _NOT_A_NAME.match(t) or any(_NOT_A_NAME.match(w) for w in words):
+        return None
+    if strict and not (explicit or _HONORIFIC.match(t) or len(words) == 1):
         return None
     return " ".join(w[:1].upper() + w[1:] for w in words)
 
@@ -122,10 +135,12 @@ def parse_panggilan(text: str) -> str | None:
 ASK_PANGGILAN = "Oh ya, mau aku panggil apa? (misalnya: Mama, Bu Sri, Om Budi)"
 
 
-def panggilan_saved(p: str, register_hint: str) -> str:
-    return (f"Oke, mulai sekarang aku panggil *{p}* ya 😊\n"
+def panggilan_saved(p: str, register_hint: str, consent: str = "") -> str:
+    """Reply to the onboarding answer. `consent` (the short privacy line) is added the first time only."""
+    text = (f"Oke, mulai sekarang aku panggil *{p}* ya 😊\n"
             f"Kalau mau ganti, ketik {'/panggil' if register_hint.startswith('/') else 'panggil'} <nama>.\n"
             f"Biar keluarga ikut dikabarin kalau ada bahaya, ketik {register_hint}")
+    return text + ("\n\n" + consent if consent else "")
 
 
 # --------------------------------------------------------------------------- guardian line
