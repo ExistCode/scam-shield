@@ -143,3 +143,49 @@
   text: "Info dari grup RT: besok ada penyuluhan dari OJK di balai warga jam 9 pagi tentang cara menghindari penipuan online. Gratis, tidak perlu daftar."
   expected: AMAN
   accept: [WASPADA]
+# ---- false-positive controls: everyday messages a parent forwards "just to check".
+# The clearly harmless ones are strict AMAN (no WASPADA allowed) so over-flagging shows up.
+- id: aman_posyandu
+  type: text
+  text: "Bu, posyandu lansia besok jam 8 pagi di balai RW 05 ya. Bawa KTP dan buku kesehatan. Ada cek tensi dan gula darah gratis."
+  expected: AMAN
+- id: aman_cucu_sampai
+  type: text
+  text: "Ma aku udah sampai kos ya, makasih tadi bekalnya enak banget. Nanti malam aku telepon 😊"
+  expected: AMAN
+- id: aman_driver_gofood
+  type: text
+  text: "Permisi Bu, saya driver GoFood, pesanan atas nama Ibu Sri sudah saya taruh di depan pagar ya. Terima kasih."
+  expected: AMAN
+- id: aman_tagihan_pln
+  type: text
+  text: "Pengingat: tagihan listrik bulan Oktober Rp345.000. Bayar lewat aplikasi PLN Mobile, minimarket, atau kantor pos sebelum tanggal 20."
+  expected: AMAN
+  accept: [WASPADA]
+- id: aman_otp_sendiri
+  type: text
+  text: "BCA: Kode OTP Anda 482913 untuk login myBCA. RAHASIAKAN, jangan berikan kode ini kepada siapa pun termasuk pihak BCA."
+  expected: AMAN
+  accept: [WASPADA]
+  must_mention: ["jangan|rahasia"]
+- id: waspada_nomor_baru
+  type: text
+  text: "Halo Bu, ini aku Dina. Aku ganti nomor ya, nomor lama hilang. Simpan nomor ini ya Bu."
+  expected: WASPADA
+  accept: [BAHAYA]
+  must_mention: ["nomor lama|telepon"]
+- id: waspada_teman_pinjam
+  type: text
+  text: "Bu Ani, saya Bu Rini teman arisan. Maaf mendadak, boleh pinjam 300rb dulu? Minggu depan saya kembalikan."
+  expected: WASPADA
+  accept: [BAHAYA]
+- id: waspada_lowongan_umum
+  type: text
+  text: "Dicari karyawan toko roti di Bekasi, gaji UMR, shift pagi. Kirim CV ke hrd.tokorotimakmur@gmail.com"
+  expected: WASPADA
+  accept: [AMAN]
+- id: waspada_promo_link_asli
+  type: text
+  text: "Flash sale 11.11! Diskon sampai 70% hari ini saja, cek di https://shopee.co.id/flash_sale"
+  expected: WASPADA
+  accept: [AMAN]
