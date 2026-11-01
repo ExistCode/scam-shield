@@ -109,3 +109,80 @@ def to_telegram_html(text: str) -> str:
     out = html.escape(text, quote=False)
     out = _BOLD.sub(r"<b>\1</b>", out)
     return _ITALIC.sub(r"<i>\1</i>", out)
+
+
+# --------------------------------------------------------------------------- "🔎 Detail" trace (Telegram HTML)
+
+_RULE_TEXT = {
+    "apk_selalu_bahaya": "file .apk selalu BAHAYA",
+    "safe_browsing_hit": "Google Safe Browsing menandai link-nya",
+    "qris_crc_tidak_valid": "checksum QRIS tidak valid, tidak boleh AMAN",
+    "aman_tapi_ragu": "AMAN tapi keyakinan rendah jadi WASPADA",
+    "teks_disesuaikan_risiko": "teks jawaban disesuaikan dengan risiko baru",
+    "larang_100_persen_aman": 'kata "100% aman" dihapus',
+    "hapus_jangan_khawatir": '"jangan khawatir" dihapus dari peringatan',
+    "langkah_apk_terpasang": 'tambah langkah "kalau sudah terpasang"',
+    "nomor_tidak_resmi_dihapus": "nomor yang bukan kontak resmi dihapus",
+    "lapor_nomor_penipu": "tambah langkah lapor nomor di aduannomor.id",
+    "cek_rekening": "tambah langkah cek rekening di cekrekening.id",
+    "qris_dibaca_otomatis": "QR dibaca otomatis (Muse tidak memanggil decode_qris)",
+}
+
+
+def _model_name(model: str | None) -> str:
+    m = model or ""
+    if m.startswith("muse-wonder"):
+        return f"Muse Wonder ({m})"
+    if m.startswith("muse-spark"):
+        return f"Muse Spark ({m})"
+    return m or "?"
+
+
+def trace_html(check: dict) -> str:
+    """Compact trace of one check for the "🔎 Detail" button. Every dynamic value is HTML-escaped."""
+    e = lambda x: html.escape(str(x), quote=False)  # noqa: E731
+    d = check.get("details") or {}
+    conf = float(check.get("confidence") or 0)
+    category = CATEGORY_LABEL.get(check["category"], check["category"])
+    lines = [f"<b>🔎 Detail pengecekan #{e(check['case_id'])}</b>",
+             f"Hasil: <b>{e(check['risk'])}</b> · {e(category)} · keyakinan {conf:.2f}"]
+
+    steps = d.get("trace") or []
+    lines += ["", "<b>Langkah</b>"]
+    if steps:
+        for i, st in enumerate(steps, 1):
+            lines.append(f"{i}. <b>{e(st.get('step'))}</b> ({e(st.get('input'))}) → {e(st.get('result'))}")
+    else:
+        lines.append("Muse menilai dari teksnya saja (tanpa tool).")
+
+    esc = d.get("escalation")
+    if esc and esc.get("spark"):
+        sp, wo = esc["spark"], esc.get("wonder")
+        model = (f"{e(_model_name(sp.get('model')))}: {e(sp['risk'])} {e(sp['confidence'])} → "
+                 + (f"{e(_model_name(check.get('model')))}: {e(wo['risk'])} {e(wo['confidence'])} (cek ulang)" if wo
+                    else "Muse Wonder gagal, jawaban Spark dipakai"))
+    else:
+        model = e(_model_name(check.get("model")))
+    lines += ["", f"<b>Model</b>: {model}"]
+
+    overrides = d.get("overrides") or []
+    lines += ["", "<b>Aturan keamanan</b>"]
+    if overrides:
+        for o in overrides:
+            why = _RULE_TEXT.get(o.get("rule"), o.get("rule"))
+            if o.get("field") == "risk":
+                lines.append(f"• Muse bilang {e(o.get('from'))} → aturan <code>{e(o.get('rule'))}</code> ubah jadi "
+                             f"<b>{e(o.get('to'))}</b> ({e(why)})")
+            else:
+                lines.append(f"• <code>{e(o.get('rule'))}</code>: {e(why)}")
+    else:
+        lines.append("Tidak ada. Jawaban Muse dipakai apa adanya.")
+
+    extra = []
+    if check.get("guardian_alerted"):
+        extra.append("wali dikabari")
+    if check.get("latency_ms"):
+        extra.append(f"{check['latency_ms'] / 1000:.1f} dtk")
+    if extra:
+        lines += ["", e(" · ".join(extra))]
+    return "\n".join(lines)[:4000]

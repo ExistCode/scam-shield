@@ -17,7 +17,7 @@ from app.agent import followup, persona
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, telegram_bot
-from app.channels.formatting import format_reply, guardian_line, tools_footer, working_text
+from app.channels.formatting import format_reply, guardian_line, tools_footer, trace_html, working_text
 from app.config import settings
 from app.db import repo
 
@@ -297,7 +297,30 @@ def _handle_followup(text: str, user, chat_id: int, mid: int, label: str, profil
     return True
 
 
+_DETAIL = re.compile(r"detail:(\d{1,12})")
+
+
+def process_callback(cq: dict) -> None:
+    """"🔎 Detail" button: reply with the trace of that check, only to the chat that owns it."""
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    m = _DETAIL.fullmatch(cq.get("data") or "")
+    user = repo.get_tg_user(chat_id) if chat_id is not None else None
+    check = repo.get_check(int(m.group(1))) if m else None
+    if not (m and user and check and check["user_id"] == user.id):
+        telegram_bot.answer_callback(cq.get("id", ""), "Detailnya nggak ketemu.")
+        return
+    telegram_bot.answer_callback(cq.get("id", ""))
+    try:
+        telegram_bot.send_html(chat_id, trace_html(check), reply_to=msg.get("message_id"))
+    except Exception:
+        log.exception("sending detail for case %s failed", check["case_id"])
+
+
 def process_update(update: dict) -> None:
+    if "callback_query" in update:
+        process_callback(update["callback_query"])
+        return
     msg = update.get("message")
     if not msg or (msg.get("chat") or {}).get("type") != "private":
         return  # groups/channels/edits are ignored
@@ -368,7 +391,8 @@ def process_update(update: dict) -> None:
         alerted = status == "sent"
         line = guardian_line(status, "/daftar_wali", names, profile)
         reply = format_reply(result.verdict, line, tools_footer(result), profile)
-        telegram_bot.edit_or_send(chat_id, working_id, reply, reply_to=mid)
+        telegram_bot.edit_or_send(chat_id, working_id, reply, reply_to=mid,
+                                  reply_markup=telegram_bot.detail_keyboard(case_id))
         if first_time:
             telegram_bot.send_text(chat_id, FIRST_TIME_NOTE)
             repo.set_consent(user.id)

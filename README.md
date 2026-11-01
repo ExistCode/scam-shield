@@ -81,6 +81,14 @@ The agent core is channel-agnostic. There are two chat adapters plus the web tes
 
 In production, set `TELEGRAM_WEBHOOK_URL=https://<app>.up.railway.app/telegram/webhook` and a random `TELEGRAM_WEBHOOK_SECRET` (required: without it the webhook isn't registered and requests are rejected). Polling and the webhook can't run at the same time; `poll` removes the webhook, so redeploy the Railway service (or run `set-webhook`) afterwards.
 
+Every Telegram verdict has a **🔎 Detail** button (`callback_data = detail:<check_id>`). Tapping it replies with a compact trace of that check, read from the database (`verdicts.details`):
+- each step as tool → short result;
+- the model(s) used, including a Spark → Wonder escalation;
+- the confidence;
+- every "Muse said X → rule changed it to Y" override.
+
+Everything is HTML-escaped, and only the chat that owns the check can open it. The main reply is unchanged.
+
 Telegram commands:
 - `/panggil <nama>`, `/gaya santai|sopan`
 - `/daftar_wali [anak|cucu|keponakan|…]` (alias `/link`)

@@ -52,6 +52,11 @@ def upsert_tg_user(chat_id: int | str, name: str | None = None, role: str = "par
         return user, True
 
 
+def get_tg_user(chat_id: int | str) -> User | None:
+    with get_session() as s:
+        return s.scalar(select(User).where(User.tg_chat_id == str(chat_id)))
+
+
 def upsert_web_user(web_id: str, name: str | None = None, role: str = "parent") -> tuple[User, bool]:
     """Simulated chat user of the /wa demo page. Returns (user, is_new)."""
     with get_session() as s:
@@ -250,6 +255,19 @@ def clear_profile_contacts(parent_id: int) -> None:
         row = s.get(UserProfile, parent_id)
         if row:
             row.contacts = []
+
+
+def get_check(case_id: int) -> dict | None:
+    """Everything stored for one check (the "Detail" view). None if it doesn't exist."""
+    with get_session() as s:
+        case = s.get(Case, case_id)
+        v = s.scalar(select(VerdictRow).where(VerdictRow.case_id == case_id))
+        if not case or not v:
+            return None
+        return {"case_id": case.id, "user_id": case.user_id, "input_type": case.input_type, "risk": v.risk,
+                "category": v.category, "confidence": v.confidence, "tools_used": v.tools_used or [],
+                "model": v.model, "provider": v.provider, "latency_ms": v.latency_ms,
+                "guardian_alerted": v.guardian_alerted, "details": v.details or {}}
 
 
 def count_reports(kind: str, number: str, exclude_user_id: int | None = None) -> int:

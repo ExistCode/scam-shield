@@ -473,7 +473,55 @@ def details(result: AnalysisResult) -> dict:
         d["escalation"] = result.escalation
     if result.tool_outputs.get("aduannomor"):
         d["aduannomor"] = result.tool_outputs["aduannomor"]
+    d["trace"] = trace(result)
+    d["confidence"] = result.verdict.confidence
+    d["latency_ms"] = result.latency_ms
     return d
+
+
+def _short(text, n: int = 70) -> str:
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def trace(result: AnalysisResult) -> list[dict]:
+    """Compact per-step record for the "Detail" view: [{"step", "input", "result"}]. Plain text only;
+    the channel escapes it. Never includes the safe-word hint or raw media."""
+    out: list[dict] = []
+    t = result.tool_outputs
+    used = result.tools_used
+    if "transcribe_audio" in used and t.get("transcribe_audio"):
+        a = t["transcribe_audio"]
+        secs = round((a.get("duration_ms") or 0) / 1000)
+        out.append({"step": "Muse Voice Transcribe", "input": f"audio {secs} dtk" if secs else "audio",
+                    "result": f'"{_short(a.get("transcript"), 80)}"'})
+    if "describe_image" in used and t.get("describe_image"):
+        v = t["describe_image"]
+        out.append({"step": "Muse vision (describe_image)", "input": "gambar",
+                    "result": f"{v.get('kind')}: {_short(v.get('notes'), 60)}"})
+    if "muse_vision" in used:
+        out.append({"step": "Muse Spark image input", "input": "gambar", "result": "dibaca langsung di panggilan verdict"})
+    for link in t.get("check_link", []):
+        flags = ", ".join(link.get("flags") or []) or "tidak ada tanda"
+        dest = link.get("domain") or link.get("error") or "?"
+        out.append({"step": "check_link", "input": _short(link.get("url"), 50),
+                    "result": f"{dest} ({link.get('redirects', 0)} redirect); {flags}"})
+    if t.get("sam_crop"):
+        s = t["sam_crop"]
+        res = "gagal" if s.get("error") else f"{len(s.get('boxes') or [])} kotak QR" + (", crop terbaca" if s.get("decoded") else "")
+        out.append({"step": "SAM 3.1", "input": '"QR code"', "result": res})
+    if t.get("decode_qris"):
+        q = t["decode_qris"]
+        crc = "CRC valid" if q.get("crc_valid") else "CRC TIDAK valid"
+        out.append({"step": "decode_qris", "input": "kode QR di gambar",
+                    "result": f"merchant {q.get('merchant_name')!s}, {q.get('merchant_city')!s}; {crc}"})
+    for sw in t.get("safe_word_check", []):
+        out.append({"step": "safe_word_check", "input": "-",
+                    "result": "kata aman keluarga ada" if sw.get("has_safe_word") else "belum ada kata aman"})
+    for number, info in (t.get("aduannomor") or {}).items():
+        out.append({"step": "AduanNomor.id (public lookup)", "input": number,
+                    "result": f"{info.get('reported_count', 0)}x dilaporkan ({info.get('source')})"})
+    return out
 
 
 # --------------------------------------------------------------------------- entry point
@@ -533,8 +581,8 @@ def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
     if result.provider == "meta" and not (result.model or "").startswith("muse-wonder") \
             and settings.wonder_threshold > 0 and (
             verdict is None or verdict.confidence < settings.wonder_threshold):
-        spark = ({"risk": verdict.risk, "category": verdict.category, "confidence": verdict.confidence}
-                 if verdict else None)
+        spark = ({"risk": verdict.risk, "category": verdict.category, "confidence": verdict.confidence,
+                  "model": result.model} if verdict else None)
         result.escalation = {"reason": "low_confidence" if verdict else "no_verdict", "spark": spark, "wonder": None}
         try:
             wonder = get_provider("wonder")

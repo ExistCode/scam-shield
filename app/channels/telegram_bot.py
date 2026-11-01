@@ -41,7 +41,27 @@ def call(method: str, _timeout: float = 15, **params) -> dict | list | bool:
     return body["result"]
 
 
-def send_text(chat_id: int | str, text: str, reply_to: int | None = None) -> int | None:
+def detail_keyboard(check_id: int) -> dict:
+    return {"inline_keyboard": [[{"text": "🔎 Detail", "callback_data": f"detail:{check_id}"}]]}
+
+
+def send_html(chat_id: int | str, html_text: str, reply_to: int | None = None) -> None:
+    """`html_text` must already be escaped (see formatting.trace_html)."""
+    params: dict = {"chat_id": chat_id, "text": html_text[:4096], "parse_mode": "HTML",
+                    "link_preview_options": {"is_disabled": True}}
+    if reply_to:
+        params["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
+    call("sendMessage", **params)
+
+
+def answer_callback(callback_id: str, text: str | None = None) -> None:
+    try:
+        call("answerCallbackQuery", callback_query_id=callback_id, **({"text": text} if text else {}))
+    except Exception:
+        pass
+
+
+def send_text(chat_id: int | str, text: str, reply_to: int | None = None, reply_markup: dict | None = None) -> int | None:
     """`text` uses *bold* / _italic_ (same as WhatsApp); converted to safe HTML."""
     params: dict = {
         "chat_id": chat_id,
@@ -51,20 +71,24 @@ def send_text(chat_id: int | str, text: str, reply_to: int | None = None) -> int
     }
     if reply_to:
         params["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
+    if reply_markup:
+        params["reply_markup"] = reply_markup
     sent = call("sendMessage", **params)
     return sent.get("message_id") if isinstance(sent, dict) else None
 
 
-def edit_or_send(chat_id: int | str, message_id: int | None, text: str, reply_to: int | None = None) -> None:
+def edit_or_send(chat_id: int | str, message_id: int | None, text: str, reply_to: int | None = None,
+                 reply_markup: dict | None = None) -> None:
     """Turn the "Sedang dicek…" placeholder into the answer; send a new message if editing fails."""
     if message_id:
         try:
+            extra = {"reply_markup": reply_markup} if reply_markup else {}
             call("editMessageText", chat_id=chat_id, message_id=message_id, text=to_telegram_html(text)[:4096],
-                 parse_mode="HTML", link_preview_options={"is_disabled": True})
+                 parse_mode="HTML", link_preview_options={"is_disabled": True}, **extra)
             return
         except Exception as exc:
             log.info("edit failed (%s); sending a new message", exc)
-    send_text(chat_id, text, reply_to=reply_to)
+    send_text(chat_id, text, reply_to=reply_to, reply_markup=reply_markup)
 
 
 def send_typing(chat_id: int | str) -> None:
@@ -113,7 +137,7 @@ def bot_username() -> str:
 
 
 def set_webhook(url: str) -> None:
-    params: dict = {"url": url, "allowed_updates": ["message"], "drop_pending_updates": False}
+    params: dict = {"url": url, "allowed_updates": ["message", "callback_query"], "drop_pending_updates": False}
     if settings.telegram_webhook_secret:
         params["secret_token"] = settings.telegram_webhook_secret
     call("setWebhook", **params)
@@ -140,7 +164,8 @@ def poll() -> None:
     offset = 0
     while True:
         try:
-            updates = call("getUpdates", _timeout=40, timeout=30, offset=offset, allowed_updates=["message"])
+            updates = call("getUpdates", _timeout=40, timeout=30, offset=offset,
+                           allowed_updates=["message", "callback_query"])
         except (httpx.HTTPError, RuntimeError) as exc:
             log.warning("getUpdates failed: %s", exc)
             continue

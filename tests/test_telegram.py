@@ -1,3 +1,4 @@
+import re
 import json
 from types import SimpleNamespace
 
@@ -51,7 +52,7 @@ def test_rejects_bad_secret(client):
 
 def test_guardian_link_and_alert(client, monkeypatch):
     sent = []
-    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None: sent.append((str(chat_id), text)))
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
     monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
@@ -88,7 +89,7 @@ def test_guardian_link_and_alert(client, monkeypatch):
 
 def test_first_message_gets_verdict_before_intro(client, monkeypatch):
     sent = []
-    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None: sent.append(text))
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append(text))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     upd = {"update_id": 9001, "message": {"message_id": 9002, "chat": {"id": 5559999, "type": "private"},
@@ -123,7 +124,7 @@ def _followup_provider(payload: dict):
 def test_followup_answered_in_context(client, monkeypatch):
     from app.agent import followup
     sent, analyzed = [], []
-    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None: sent.append((str(chat_id), text)))
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
     monkeypatch.setattr(telegram_webhook, "analyze",
@@ -185,7 +186,7 @@ def test_build_input_video_and_video_note(monkeypatch):
 
 def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
     sent = []
-    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None: sent.append((str(chat_id), text)))
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
     monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
     monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
@@ -229,3 +230,72 @@ def test_followup_scrubs_invented_numbers(monkeypatch):
                                              "reason": "x", "next_steps": [], "input_text": "CS bank"})
     assert contacts.unofficial_numbers(ans.reply) == [] and "14000" not in ans.reply
     assert "1500888" in ans.reply and "iasc.ojk.go.id" in ans.reply
+
+
+# --------------------------------------------------------------------------- "🔎 Detail" button
+
+def test_detail_button_and_trace(client, monkeypatch):
+    from app.channels.formatting import format_reply as fr
+    sent, html_sent, answers = [], [], []
+    monkeypatch.setattr(telegram_bot, "send_text",
+                        lambda chat_id, text, reply_to=None, reply_markup=None: sent.append((str(chat_id), text, reply_markup)))
+    monkeypatch.setattr(telegram_bot, "send_html", lambda chat_id, text, reply_to=None: html_sent.append((str(chat_id), text, reply_to)))
+    monkeypatch.setattr(telegram_bot, "answer_callback", lambda cid, text=None: answers.append(text))
+    monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
+
+    verdict = BAHAYA.model_copy(update={"confidence": 0.93})
+    result = AnalysisResult(
+        verdict=verdict, provider="wonder", model="muse-wonder-1.0", latency_ms=12400, model_risk="WASPADA",
+        tools_used=["transcribe_audio", "check_link"],
+        tool_outputs={"transcribe_audio": {"transcript": "Ini dari <script>alert(1)</script> Polda", "duration_ms": 21000},
+                      "check_link": [{"url": "http://bit.ly/<b>x</b>", "domain": "evil.xyz", "redirects": 2,
+                                      "flags": ["link_pendek", "meniru_bca"]}]},
+        overrides=[{"rule": "apk_selalu_bahaya", "field": "risk", "from": "WASPADA", "to": "BAHAYA"},
+                   {"rule": "lapor_nomor_penipu", "field": "next_steps", "to": ["0857-1122-3344"]}],
+        escalation={"reason": "low_confidence", "spark": {"risk": "WASPADA", "category": "lainnya",
+                                                          "confidence": 0.55, "model": "muse-spark-1.3"},
+                    "wonder": {"risk": "BAHAYA", "category": "kurir_apk", "confidence": 0.93}})
+    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: result)
+
+    OWNER, OTHER = 5591001, 5591002
+    upd = {"update_id": 9901, "message": {"message_id": 77, "chat": {"id": OWNER, "type": "private"},
+           "from": {"id": OWNER, "first_name": "Sri"}, "text": "Paket tertahan, install Cek_Resi.apk",
+           "forward_origin": {"type": "hidden_user"}}}
+    client.post("/telegram/webhook", json=upd, headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
+
+    verdict_msgs = [(t, kb) for c, t, kb in sent if "*BAHAYA*" in t]
+    text, kb = verdict_msgs[-1]
+    data = kb["inline_keyboard"][0][0]
+    assert data["text"] == "🔎 Detail" and re.fullmatch(r"detail:\d+", data["callback_data"])
+    assert "Detail pengecekan" not in text and "Langkah" not in text  # main reply unchanged
+    check_id = int(data["callback_data"].split(":")[1])
+
+    def tap(chat_id, data, uid):
+        cb = {"update_id": uid, "callback_query": {"id": f"cb{uid}", "from": {"id": chat_id}, "data": data,
+              "message": {"message_id": 78, "chat": {"id": chat_id, "type": "private"}}}}
+        client.post("/telegram/webhook", json=cb, headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
+
+    tap(OWNER, f"detail:{check_id}", 9902)
+    chat, trace, reply_to = html_sent[-1]
+    assert chat == str(OWNER) and reply_to == 78 and answers[-1] is None
+    assert f"Detail pengecekan #{check_id}" in trace and "keyakinan 0.93" in trace
+    assert "<b>Muse Voice Transcribe</b> (audio 21 dtk)" in trace
+    assert "<b>check_link</b> (http://bit.ly/&lt;b&gt;x&lt;/b&gt;) → evil.xyz (2 redirect); link_pendek, meniru_bca" in trace
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in trace and "<script>" not in trace  # escaped
+    assert "Muse Spark (muse-spark-1.3): WASPADA 0.55 → Muse Wonder (muse-wonder-1.0): BAHAYA 0.93 (cek ulang)" in trace
+    assert "Muse bilang WASPADA → aturan <code>apk_selalu_bahaya</code> ubah jadi <b>BAHAYA</b>" in trace
+    assert "<code>lapor_nomor_penipu</code>" in trace and "12.4 dtk" in trace
+
+    n = len(html_sent)
+    tap(OTHER, f"detail:{check_id}", 9903)          # someone else's chat: nothing leaks
+    tap(OWNER, "detail:999999", 9904)               # unknown check
+    tap(OWNER, "detail:1;drop", 9905)               # malformed data
+    assert len(html_sent) == n and answers[-3:] == ["Detailnya nggak ketemu."] * 3
+
+
+def test_trace_without_tools_or_overrides():
+    from app.channels.formatting import trace_html
+    out = trace_html({"case_id": 5, "risk": "AMAN", "category": "lainnya", "confidence": 0.9, "model": "muse-spark-1.3",
+                      "details": {"trace": [], "overrides": []}})
+    assert "Muse menilai dari teksnya saja" in out and "Muse Spark (muse-spark-1.3)" in out
+    assert "Tidak ada. Jawaban Muse dipakai apa adanya." in out

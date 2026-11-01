@@ -688,7 +688,7 @@ def test_unsure_spark_escalates_to_wonder(spark_and_wonder):
     assert calls == ["meta", "wonder"]
     assert r.verdict.risk == "BAHAYA" and r.provider == "wonder" and r.model == "muse-wonder-1.0"
     assert r.escalation == {"reason": "low_confidence",
-                            "spark": {"risk": "WASPADA", "category": "lainnya", "confidence": 0.55},
+                            "spark": {"risk": "WASPADA", "category": "lainnya", "confidence": 0.55, "model": "muse-spark-1.3"},
                             "wonder": {"risk": "BAHAYA", "category": "lowongan_kerja", "confidence": 0.9}}
     assert "Muse Spark → Muse Wonder (cek ulang)" in tools_footer(r)
     assert orchestrator.details(r)["escalation"]["spark"]["risk"] == "WASPADA"
