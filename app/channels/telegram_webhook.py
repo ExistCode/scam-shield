@@ -17,7 +17,7 @@ from app.agent import followup
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, telegram_bot
-from app.channels.formatting import format_reply, guardian_line
+from app.channels.formatting import format_reply, guardian_line, tools_footer, working_text
 from app.config import settings
 from app.db import repo
 
@@ -278,6 +278,10 @@ def process_update(update: dict) -> None:
                 telegram_bot.send_text(chat_id, "Maaf, jenis pesan ini belum bisa dicek. "
                                        "Coba teruskan teks, foto, pesan suara, atau video.", reply_to=mid)
                 return
+            try:
+                working_id = telegram_bot.send_text(chat_id, working_text(inp.type), reply_to=mid)
+            except Exception:
+                working_id = None
             case_id = repo.create_case(user.id, "tg", input_type, inp.text,
                                        channel_message_id=f"tg:{chat_id}:{mid}")
             if case_id is None:
@@ -292,7 +296,8 @@ def process_update(update: dict) -> None:
             repo.mark_alerted(case_id)
         alerted = status == "sent"
         hint = "" if first_time else "/daftar_wali"  # the intro below already explains it
-        telegram_bot.send_text(chat_id, format_reply(result.verdict, guardian_line(status, hint)), reply_to=mid)
+        reply = format_reply(result.verdict, guardian_line(status, hint), tools_footer(result))
+        telegram_bot.edit_or_send(chat_id, working_id, reply, reply_to=mid)
         if first_time:
             telegram_bot.send_text(chat_id, FIRST_TIME_NOTE)
             repo.set_consent(user.id)

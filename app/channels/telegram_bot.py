@@ -41,7 +41,7 @@ def call(method: str, _timeout: float = 15, **params) -> dict | list | bool:
     return body["result"]
 
 
-def send_text(chat_id: int | str, text: str, reply_to: int | None = None) -> None:
+def send_text(chat_id: int | str, text: str, reply_to: int | None = None) -> int | None:
     """`text` uses *bold* / _italic_ (same as WhatsApp); converted to safe HTML."""
     params: dict = {
         "chat_id": chat_id,
@@ -51,7 +51,20 @@ def send_text(chat_id: int | str, text: str, reply_to: int | None = None) -> Non
     }
     if reply_to:
         params["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
-    call("sendMessage", **params)
+    sent = call("sendMessage", **params)
+    return sent.get("message_id") if isinstance(sent, dict) else None
+
+
+def edit_or_send(chat_id: int | str, message_id: int | None, text: str, reply_to: int | None = None) -> None:
+    """Turn the "Sedang dicek…" placeholder into the answer; send a new message if editing fails."""
+    if message_id:
+        try:
+            call("editMessageText", chat_id=chat_id, message_id=message_id, text=to_telegram_html(text)[:4096],
+                 parse_mode="HTML", link_preview_options={"is_disabled": True})
+            return
+        except Exception as exc:
+            log.info("edit failed (%s); sending a new message", exc)
+    send_text(chat_id, text, reply_to=reply_to)
 
 
 def send_typing(chat_id: int | str) -> None:

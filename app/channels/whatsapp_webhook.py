@@ -15,7 +15,7 @@ from app.agent import followup
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, whatsapp_media, whatsapp_sender
-from app.channels.formatting import format_reply, guardian_line
+from app.channels.formatting import format_reply, guardian_line, tools_footer, working_text
 from app.config import settings
 from app.db import repo
 
@@ -227,6 +227,10 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         case_id = repo.create_case(user.id, "wa", input_type, inp.text, channel_message_id=f"wa:{mid}")
         if case_id is None:  # duplicate delivery
             return
+        try:  # WhatsApp has no "typing…" for bots: say we're on it
+            whatsapp_sender.send_text(sender, working_text(inp.type), reply_to=mid)
+        except Exception:
+            pass
 
         result = analyze(inp)
         repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
@@ -238,7 +242,7 @@ def process_message(msg: dict, profile_name: str | None) -> None:
             repo.mark_alerted(case_id)
         alerted = status == "sent"
         hint = "" if first_time else "*daftar wali 08xxxxxxxxxx*"
-        whatsapp_sender.send_text(sender, format_reply(result.verdict, guardian_line(status, hint)), reply_to=mid)
+        whatsapp_sender.send_text(sender, format_reply(result.verdict, guardian_line(status, hint), tools_footer(result)), reply_to=mid)
         if first_time:  # answer first, introduce ourselves after
             whatsapp_sender.send_text(sender, FIRST_TIME_NOTE)
             repo.set_consent(user.id)

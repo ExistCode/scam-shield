@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input, Verdict
-from app.channels.formatting import format_reply
+from app.channels.formatting import format_reply, tools_footer
 from app.config import settings
 from app.db import repo
 
@@ -97,7 +97,7 @@ def analyze_endpoint(req: AnalyzeRequest, request: Request,
         outputs["decode_qris"] = {k: v for k, v in outputs["decode_qris"].items() if k != "raw"}
     return AnalyzeResponse(
         verdict=result.verdict,
-        whatsapp_reply=format_reply(result.verdict),
+        whatsapp_reply=format_reply(result.verdict, footer=tools_footer(result)),
         tools_used=result.tools_used,
         extracted_text=result.extracted_text,
         tool_outputs=outputs,

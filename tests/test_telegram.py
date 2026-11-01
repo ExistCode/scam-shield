@@ -94,10 +94,23 @@ def test_first_message_gets_verdict_before_intro(client, monkeypatch):
     upd = {"update_id": 9001, "message": {"message_id": 9002, "chat": {"id": 5559999, "type": "private"},
            "from": {"id": 5559999, "first_name": "Ibu"}, "text": "Paket tertahan, buka aplikasi ini"}}
     client.post("/telegram/webhook", json=upd, headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
-    assert len(sent) == 2
-    assert "*BAHAYA*" in sent[0]                      # answer first
-    assert "Cek Dulu" in sent[1] and "setuju" in sent[1]  # intro + consent after
-    assert "Halo, saya" not in sent[0]
+    assert len(sent) == 3
+    assert "Sedang dicek" in sent[0]                  # placeholder right away
+    assert "*BAHAYA*" in sent[1]                      # then the answer
+    assert "Cek Dulu" in sent[2] and "setuju" in sent[2]  # intro + consent after
+    assert "Halo, saya" not in sent[1]
+
+
+def test_tools_footer():
+    from app.channels.formatting import tools_footer
+    r = AnalysisResult(verdict=BAHAYA, provider="meta", model="muse-spark-1.3",
+                       tools_used=["transcribe_audio", "check_link", "safe_word_check"],
+                       overrides=[{"rule": "apk_selalu_bahaya", "field": "risk", "from": "WASPADA", "to": "BAHAYA"}])
+    assert tools_footer(r) == ("🔎 _Dicek dengan: Muse Voice → Muse Spark → cek link → cek kata aman"
+                               " → aturan keamanan_")
+    r = AnalysisResult(verdict=BAHAYA, provider="fireworks", model="accounts/fireworks/models/llama4-maverick")
+    assert "llama4-maverick (cadangan)" in tools_footer(r)
+    assert "<i>" in to_telegram_html(tools_footer(r))
 
 
 def _followup_provider(payload: dict):

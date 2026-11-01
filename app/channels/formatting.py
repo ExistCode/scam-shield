@@ -2,7 +2,7 @@
 import html
 import re
 
-from app.agent.schema import Verdict
+from app.agent.schema import AnalysisResult, Verdict
 
 RISK_HEADER = {
     "AMAN": "🟢 *KEMUNGKINAN AMAN*",
@@ -52,6 +52,39 @@ def format_reply(v: Verdict, guardian: str = "", footer: str = "") -> str:
     if footer:
         lines += [footer]
     return "\n".join(lines)
+
+
+def working_text(input_type: str) -> str:
+    """Shown right away while the check runs (Telegram edits it into the verdict)."""
+    if input_type in ("audio", "video"):
+        return "🎧 Sedang mendengarkan dan mengecek pesannya…"
+    if input_type == "image":
+        return "🔎 Sedang memeriksa gambarnya…"
+    return "🔎 Sedang dicek…"
+
+
+def tools_footer(result: AnalysisResult) -> str:
+    """One line showing what actually ran, e.g. "Dicek dengan: Muse Voice → Muse Spark → cek link"."""
+    used = set(result.tools_used)
+    steps = []
+    if "transcribe_audio" in used:
+        steps.append("Muse Voice")
+    if result.provider == "meta":
+        model = "Muse Spark"
+    elif result.model:
+        model = f"{result.model.rsplit('/', 1)[-1]} (cadangan)"
+    else:
+        model = ""
+    if model:
+        if used & {"muse_vision", "describe_image"}:
+            model += " (baca gambar)"
+        steps.append(model)
+    for tool, label in (("decode_qris", "baca QRIS"), ("check_link", "cek link"), ("safe_word_check", "cek kata aman")):
+        if tool in used:
+            steps.append(label)
+    if any(o.get("field") == "risk" for o in result.overrides):
+        steps.append("aturan keamanan")
+    return ("🔎 _Dicek dengan: " + " → ".join(steps) + "_") if steps else ""
 
 
 def guardian_alert_text(parent_label: str, v: Verdict) -> str:
