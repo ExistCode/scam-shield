@@ -402,7 +402,7 @@ def test_live_matrix(case):
         assert not orchestrator._SOFTENER.search(r.verdict.reply_text), r.verdict.reply_text
         assert "pintar" not in r.verdict.reply_text.lower(), r.verdict.reply_text
     out = format_reply(r.verdict)
-    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == [], out
+    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers + r.verdict.scam_account_numbers) == [], out
     assert not _OWNER_CLAIM.search(out), out
     said = out.lower()
     print(f"\n{case['id']}: {r.verdict.risk}/{r.verdict.category} conf={r.verdict.confidence:.2f} "
@@ -432,7 +432,7 @@ def test_live_images(fname, caption, allowed):
         pytest.skip("run: python -m tests.manual.make_assets")
     r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime="image/png"))
     out = format_reply(r.verdict)
-    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == [], out
+    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers + r.verdict.scam_account_numbers) == [], out
     assert not _OWNER_CLAIM.search(out), out
     said = out.lower()
     print(f"\n{fname}: {r.verdict.risk}/{r.verdict.category} muse={r.model_risk} mode={r.image_mode} "

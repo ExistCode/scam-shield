@@ -12,6 +12,7 @@ os.environ["WA_ACCESS_TOKEN"] = ""
 os.environ["WA_PHONE_NUMBER_ID"] = ""
 os.environ["TELEGRAM_BOT_TOKEN"] = "123:test-token"
 os.environ["GOOGLE_SAFE_BROWSING_KEY"] = ""
+os.environ.setdefault("ADUANNOMOR_MODE", "off")  # tests opt in explicitly; never hit the site by accident
 if not os.environ.get("RUN_LIVE"):
     os.environ["META_API_KEY"] = ""
     os.environ["FIREWORKS_API_KEY"] = ""

@@ -27,7 +27,7 @@ from app.agent.prompts import JSON_REPAIR_PROMPT, build_system_prompt, wrap_forw
 from app.agent.providers import Provider, fallback_name, get_provider
 from app.agent.schema import FALLBACK_VERDICT, VERDICT_JSON_SCHEMA, AnalysisResult, Input, Verdict
 from app.config import settings
-from app.tools import identifiers, links, qris, safe_word, transcribe, vision
+from app.tools import aduannomor, identifiers, links, qris, safe_word, transcribe, vision
 
 log = logging.getLogger("cekdulu.agent")
 
@@ -322,16 +322,69 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
 
     v.scam_type = contacts.resolve_type(v.scam_type, v.category)
     if v.risk == "AMAN":
-        v.contacts, v.scam_phone_numbers = [], []
+        v.contacts, v.scam_phone_numbers, v.scam_account_numbers = [], [], []
     else:
         v.contacts = contacts.contacts_for(v.scam_type, money_sent=v.money_sent)
-        numbers = _scam_numbers(inp, result, verdict.scam_phone_numbers)
-        v.scam_phone_numbers = numbers
-        if numbers:
-            steps = [s for s in v.next_steps if "aduannomor" not in s.lower()][:3]
-            v.next_steps = steps + [contacts.report_step(numbers)]
-            result.overrides.append({"rule": "lapor_nomor_penipu", "field": "next_steps", "to": numbers})
+        accounts = _scam_accounts(inp, result, verdict.scam_account_numbers)
+        numbers = [n for n in _scam_numbers(inp, result, verdict.scam_phone_numbers)
+                   if n.replace("-", "") not in accounts]  # an e-wallet number is handled as an account
+        v.scam_phone_numbers, v.scam_account_numbers = numbers, accounts
+        extra = ([contacts.report_step(numbers)] if numbers else []) + ([contacts.account_step(accounts)] if accounts else [])
+        if extra:
+            steps = [s for s in v.next_steps if not re.search(r"(?i)aduannomor|cekrekening", s)]
+            v.next_steps = steps[:4 - len(extra)] + extra  # at most 4 steps in total
+            if numbers:
+                result.overrides.append({"rule": "lapor_nomor_penipu", "field": "next_steps", "to": numbers})
+            if accounts:
+                result.overrides.append({"rule": "cek_rekening", "field": "next_steps", "to": accounts})
     return v
+
+
+def _scam_accounts(inp: Input, result: AnalysisResult, from_model: list[str]) -> list[str]:
+    """Account numbers to check at cekrekening.id. Same trust rule as phone numbers."""
+    source = " ".join(filter(None, [result.extracted_text, inp.text]))
+    source_digits = re.sub(r"\D", "", source)
+    found = list(identifiers.extract_accounts(source))
+    for raw in from_model or []:
+        a = contacts.normalize_account(str(raw))
+        if a and (inp.type == "image" or a in source_digits):
+            found.append(a)
+    out: list[str] = []
+    for raw in found:
+        a = contacts.normalize_account(raw)
+        if a and a not in out:
+            out.append(a)
+    return out[:2]
+
+
+def lookup_lines(v: Verdict, inp: Input, result: AnalysisResult) -> None:
+    """Code-written facts about the numbers: public AduanNomor.id lookup (optional, silent on failure)
+    and our own report count. Never says who owns a number or where it is from."""
+    if v.risk == "AMAN":
+        return
+    from app.db import repo  # local import: repo imports this module
+
+    lines: list[str] = []
+    found = aduannomor.check_many(v.scam_phone_numbers)
+    if found:
+        result.tool_outputs["aduannomor"] = found
+        if "aduannomor_lookup" not in result.tools_used:
+            result.tools_used.append("aduannomor_lookup")
+    single = len(v.scam_phone_numbers) == 1
+    for n in v.scam_phone_numbers:
+        label = "Nomor ini" if single else f"Nomor {n}"
+        count = (found.get(n) or {}).get("reported_count", 0)
+        if count > 0:
+            lines.append(f"{label} sudah dilaporkan {count}x di AduanNomor.id (Komdigi).")
+        own = repo.count_reports("phone", n, exclude_user_id=inp.user_id) if inp.user_id else 0
+        if own > 0:
+            lines.append(f"{label} sudah {own}x dilaporkan pengguna Cek Dulu.")
+    for a in v.scam_account_numbers:
+        own = repo.count_reports("account", a, exclude_user_id=inp.user_id) if inp.user_id else 0
+        if own > 0:
+            label = "Rekening ini" if len(v.scam_account_numbers) == 1 else f"Rekening {a}"
+            lines.append(f"{label} sudah {own}x dilaporkan pengguna Cek Dulu.")
+    v.lookups = lines
 
 
 def _scam_numbers(inp: Input, result: AnalysisResult, from_model: list[str]) -> list[str]:
@@ -392,6 +445,8 @@ def details(result: AnalysisResult) -> dict:
     flags = [f for out in result.tool_outputs.get("check_link", []) for f in out.get("flags", [])]
     if flags:
         d["link_flags"] = sorted(set(flags))
+    if result.tool_outputs.get("aduannomor"):
+        d["aduannomor"] = result.tool_outputs["aduannomor"]
     return d
 
 
@@ -446,5 +501,9 @@ def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
             continue
 
     result.verdict = apply_safety(verdict or FALLBACK_VERDICT, inp, result)
+    try:
+        lookup_lines(result.verdict, inp, result)
+    except Exception as exc:  # extras must never break a verdict
+        log.warning("lookups failed: %s", exc)
     result.latency_ms = int((time.monotonic() - t0) * 1000)
     return result

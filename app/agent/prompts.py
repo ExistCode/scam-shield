@@ -79,6 +79,9 @@ Jawab HANYA dengan satu objek JSON (tanpa markdown, tanpa teks lain) dengan fiel
   (teks, gambar/screenshot, atau suara), tulis digitnya persis seperti di konten. [] kalau tidak ada. \
   Jangan menebak, jangan masukkan nomor resmi (bank, polisi, OJK). Jangan tulis nomor ini di teks lain; \
   sistem otomatis menambahkan langkah melaporkannya.
+- scam_account_numbers: nomor rekening bank/e-wallet tujuan transfer yang diminta penipu dan TERLIHAT \
+  atau TERDENGAR di konten, digitnya persis. [] kalau tidak ada. Jangan menebak. Sistem otomatis \
+  menambahkan langkah cek rekening.
 - money_sent: true HANYA kalau konten/caption menunjukkan orang tua SUDAH transfer, SUDAH kirim \
   OTP/PIN, atau SUDAH memasang aplikasinya; selain itu false
 - reply_text: 1-2 kalimat pendek, dengan sapaan sesuai PROFIL, tanpa istilah teknis, jangan mengulang \

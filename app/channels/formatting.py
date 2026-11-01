@@ -39,7 +39,8 @@ def format_reply(v: Verdict, guardian: str = "", footer: str = "", profile: dict
     """Emoji verdict line, one line of why, 2-3 numbered actions, official contacts, guardian line."""
     say = lambda t: persona.address((t or "").strip(), profile)  # noqa: E731
     lines = [f"{RISK_HEADER[v.risk]} · {say(v.reply_text)}", say(v.reason), ""]
-    lines += [f"{i}. {say(s)}" for i, s in enumerate(v.next_steps[:4], 1)]  # 3 from Muse + report step
+    lines += [f"{i}. {say(s)}" for i, s in enumerate(v.next_steps[:4], 1)]  # Muse's steps + report/check steps
+    lines += [f"ℹ️ {line}" for line in v.lookups]
     if v.contacts:
         lines += [format_contacts(v.contacts)]
     if guardian:
@@ -74,7 +75,8 @@ def tools_footer(result: AnalysisResult) -> str:
         if used & {"muse_vision", "describe_image"}:
             model += " (baca gambar)"
         steps.append(model)
-    for tool, label in (("decode_qris", "baca QRIS"), ("check_link", "cek link"), ("safe_word_check", "cek kata aman")):
+    for tool, label in (("decode_qris", "baca QRIS"), ("check_link", "cek link"), ("safe_word_check", "cek kata aman"),
+                        ("aduannomor_lookup", "cek AduanNomor")):
         if tool in used:
             steps.append(label)
     if any(o.get("field") == "risk" for o in result.overrides):

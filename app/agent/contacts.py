@@ -59,6 +59,11 @@ CONTACTS_BY_TYPE: dict[str, list[dict]] = {
 # Scammer phone numbers get their own numbered step instead of a contact line: see report_step().
 ALL_CONTACTS = [POLICE, IASC, OJK, ADUAN_NOMOR, HALO_BCA]
 
+# Bank accounts: no live lookup (cekrekening.id is behind a bot check and has no public API), just links.
+CEKREKENING_CHECK = "https://cekrekening.id/cek-rekening"
+CEKREKENING_REPORT = "https://cekrekening.id/laporkan-rekening"
+SITES = [c["contact"] for c in ALL_CONTACTS if c["contact"].startswith("http")] + [CEKREKENING_CHECK, CEKREKENING_REPORT]
+
 # Fallback when the model says scam_type="other" but the category is specific.
 _TYPE_FROM_CATEGORY = {
     "aparat_palsu": "fake_police",
@@ -147,6 +152,16 @@ def normalize_phone(raw: str) -> str | None:
     if not re.fullmatch(r"08\d{8,11}", d) or d in ALLOWED_NUMBERS:
         return None
     return "-".join([d[:4], d[4:8], d[8:]])
+
+
+def normalize_account(raw: str) -> str | None:
+    d = re.sub(r"\D", "", raw or "")
+    return d if 8 <= len(d) <= 16 and d not in ALLOWED_NUMBERS else None
+
+
+def account_step(accounts: list[str]) -> str:
+    return (f"Cek dulu rekening {', '.join(accounts)} di {CEKREKENING_CHECK} sebelum transfer. "
+            f"Kalau ini penipu, laporkan di {CEKREKENING_REPORT}")
 
 
 def report_step(numbers: list[str]) -> str:
