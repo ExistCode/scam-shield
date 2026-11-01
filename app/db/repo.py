@@ -4,12 +4,12 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.agent.orchestrator import details
 from app.agent.schema import AnalysisResult
-from app.db.models import Case, GuardianLink, User, UserProfile, VerdictRow
+from app.db.models import Case, GuardianLink, ReportedNumber, User, UserProfile, VerdictRow
 from app.db.session import get_session
 
 
@@ -93,6 +93,12 @@ def save_verdict(case_id: int, result: AnalysisResult, input_text: str | None = 
                 latency_ms=result.latency_ms, guardian_alerted=False, details=details(result),
             )
         )
+        if v.risk != "AMAN":
+            case = s.get(Case, case_id)
+            for kind, nums in (("phone", v.scam_phone_numbers), ("account", v.scam_account_numbers)):
+                for n in nums:
+                    s.add(ReportedNumber(kind=kind, number=re.sub(r"\D", "", n), risk=v.risk, case_id=case_id,
+                                         user_id=case.user_id if case else None))
 
 
 def last_case_for(user_id: int, within: timedelta) -> dict | None:
@@ -230,3 +236,14 @@ def clear_profile_contacts(parent_id: int) -> None:
         row = s.get(UserProfile, parent_id)
         if row:
             row.contacts = []
+
+
+def count_reports(kind: str, number: str, exclude_user_id: int | None = None) -> int:
+    """How many *other* Cek Dulu users got this number in a WASPADA/BAHAYA check (web test page excluded)."""
+    digits = re.sub(r"\D", "", number)
+    with get_session() as s:
+        q = select(func.count(func.distinct(ReportedNumber.user_id))).where(
+            ReportedNumber.kind == kind, ReportedNumber.number == digits, ReportedNumber.user_id.is_not(None))
+        if exclude_user_id is not None:
+            q = q.where(ReportedNumber.user_id != exclude_user_id)
+        return int(s.scalar(q) or 0)

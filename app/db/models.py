@@ -88,3 +88,18 @@ class UserProfile(Base):
     contacts: Mapped[list] = mapped_column(JSON, default=list)
     awaiting: Mapped[str | None] = mapped_column(String(16), nullable=True)  # onboarding question pending
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class ReportedNumber(Base):
+    """A phone/account number that appeared in a WASPADA/BAHAYA check. Feeds "sudah Nx dilaporkan
+    pengguna Cek Dulu". Only digits are stored (no names, no message text)."""
+
+    __tablename__ = "reported_numbers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(8))  # phone | account
+    number: Mapped[str] = mapped_column(String(24), index=True)  # digits only, phones as 08xx
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    case_id: Mapped[int | None] = mapped_column(ForeignKey("cases.id"), nullable=True)
+    risk: Mapped[str] = mapped_column(String(8))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
