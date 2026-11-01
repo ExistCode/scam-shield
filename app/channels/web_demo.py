@@ -38,12 +38,12 @@ HINT = "*daftar wali anak Hans*"
 
 CONSENT = ("_Pesan yang diteruskan aku simpan sebagai teks buat pengecekan; foto dan suara nggak disimpan. "
            "Kalau lanjut pakai, berarti setuju ya._")
-WELCOME = ("Halo! Aku *Cek Dulu* 👋\n\nKalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* "
+WELCOME = ("Halo! Aku *Ronda* 👋\n\nKalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* "
            "aja ke sini. Nanti aku bilang itu penipuan atau bukan, dan harus ngapain.\n\n"
            + persona.ASK_PANGGILAN + "\n\n" + CONSENT)
-FIRST_TIME_NOTE = ("Aku *Cek Dulu* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
+FIRST_TIME_NOTE = ("Aku *Ronda* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
                    + persona.ASK_PANGGILAN + "\n\n" + CONSENT)
-HELP = ("*Cara pakai Cek Dulu*\n• Terusin pesan/foto/suara yang aneh ke sini.\n"
+HELP = ("*Cara pakai Ronda*\n• Terusin pesan/foto/suara yang aneh ke sini.\n"
         "• *panggil <nama>* : ganti panggilanmu\n• *daftar wali anak Hans* : daftarin keluarga jadi wali\n"
         "• *kata aman <petunjuk>* : simpan petunjuk kata aman keluarga\n• *gaya santai* / *gaya sopan*\n"
         "• *status* : lihat siapa aja yang ikut jagain\n• *hapus wali* : hapus semua wali")
@@ -148,7 +148,7 @@ def _link(session: str, parent_id: int, name: str, relation: str, announce: bool
     repo.add_profile_contact(parent_id, name, relation, guardian.id)
     p = persona.panggilan(repo.get_profile(parent_id))
     if announce:
-        push(guardian.web_id, f"Halo {name}! 👋 {p or 'Keluargamu'} daftarin kamu sebagai *wali* di Cek Dulu. "
+        push(guardian.web_id, f"Halo {name}! 👋 {p or 'Keluargamu'} daftarin kamu sebagai *wali* di Ronda. "
                               "Kalau beliau dapat pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
     return (f"✅ {name} ({relation}) sekarang ikut jagain{' ' + p if p else ''}. "
             f"Kalau ada pesan bahaya, {name} langsung aku kabarin.")

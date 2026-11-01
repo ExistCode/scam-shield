@@ -32,7 +32,7 @@ def client(monkeypatch):
 def test_page_needs_key_and_cookie_unlocks_analyze(client):
     c = client(demo_key="s3cret-demo", analyze_token="tok", production=True)
     r = c.get("/demo")
-    assert r.status_code == 401 and "Cek Dulu demo" in r.text and "s3cret-demo" not in r.text
+    assert r.status_code == 401 and "Ronda demo" in r.text and "s3cret-demo" not in r.text
     assert c.post("/analyze", json={"type": "text", "text": "halo"}).status_code == 401  # no cookie, no token
 
     assert c.post("/demo/login", json={"key": "wrong"}).status_code == 401
@@ -42,7 +42,7 @@ def test_page_needs_key_and_cookie_unlocks_analyze(client):
     assert "httponly" in cookie and "samesite=strict" in cookie and "s3cret-demo" not in cookie
 
     page = c.get("/demo")
-    assert page.status_code == 200 and "Cek Dulu demo" in page.text and page.headers["cache-control"] == "no-store"
+    assert page.status_code == 200 and "Ronda demo" in page.text and page.headers["cache-control"] == "no-store"
     assert "s3cret-demo" not in page.text  # the key is never in the page
 
     r = c.post("/analyze", json={"type": "text", "text": "halo"})  # cookie is enough

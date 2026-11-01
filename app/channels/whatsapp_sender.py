@@ -45,7 +45,7 @@ def send_guardian_alert(guardian_number: str, parent_label: str, v: Verdict) -> 
 
     Template body expected (2 params):
       "Halo, {{1}} baru saja menerima pesan yang terdeteksi BAHAYA ({{2}}). Mohon hubungi beliau
-       sebelum ada uang yang ditransfer. - Cek Dulu"
+       sebelum ada uang yang ditransfer. - Ronda"
     """
     category = CATEGORY_LABEL.get(v.category, v.category)
     try:

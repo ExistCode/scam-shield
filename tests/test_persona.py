@@ -81,7 +81,7 @@ def test_telegram_onboarding_and_personal_verdict(monkeypatch):
     sent = []
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
-    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
     seen_profiles = []
 
     def fake_analyze(inp):

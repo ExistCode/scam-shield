@@ -1,6 +1,8 @@
-# Cek Dulu: Scam & Hoax Checker for Indonesian Parents (Telegram + WhatsApp)
+# Ronda: Scam & Hoax Checker for Indonesian Parents (Telegram + WhatsApp)
 
-> Forward any suspicious message, screenshot, QRIS sticker, voice note or video call recording to the Cek Dulu bot and get a plain Bahasa Indonesia verdict, the reason, and what to do next. If it's dangerous, your kid gets alerted too.
+*Ronda* is the Indonesian neighbourhood night watch: neighbours taking turns to keep the kampung safe. This one keeps watch over your parents' chats.
+
+> Forward any suspicious message, screenshot, QRIS sticker, voice note or video call recording to the Ronda bot and get a plain Bahasa Indonesia verdict, the reason, and what to do next. If it's dangerous, your kid gets alerted too.
 
 **Try it:** the live demo runs on **Telegram**. The WhatsApp Cloud API adapter is fully built (webhook, signature check, alert template) and covered by tests, using the same agent core.
 
@@ -8,14 +10,14 @@ Built for the Meta Global AI Developer Hackathon (Indie track). See [PLAN.md](PL
 
 ## The problem
 
-Older Indonesian parents get fake courier APKs, "Ma, ini nomor baru aku" requests for pulsa, and fake bank CS chats every week. They're often unsure, too embarrassed to ask, and sometimes they just pay. Cek Dulu works inside a chat app they already use: they **forward** the message. There's no app to install and no account to create.
+Older Indonesian parents get fake courier APKs, "Ma, ini nomor baru aku" requests for pulsa, and fake bank CS chats every week. They're often unsure, too embarrassed to ask, and sometimes they just pay. Ronda works inside a chat app they already use: they **forward** the message. There's no app to install and no account to create.
 
 ### Why it matters (sources in [scam_research.md](scam_research.md))
 
 - **702,342 scam reports** to OJK's Indonesia Anti-Scam Centre (IASC) between its launch on 22 Nov 2024 and 30 Sep 2026. That's a cumulative total, not a yearly one. 702,833 accounts were blocked, and only Rp207 M has been returned so far ([Kontan, 5 Oct 2026](https://keuangan.kontan.co.id/news/iasc-terima-702342-laporan-kasus-penipuan-hingga-september-2026)).
-- **Speed is everything:** about 80% of victims report more than 12 hours after being scammed, while the money moves through 4 layers of accounts within minutes ([Detik, 29 Jun 2026](https://finance.detik.com/moneter/d-8552960/ojk-bongkar-modus-tipu-tipu-nasabah-hingga-bobol-rekening)). Cek Dulu answers *before* the transfer and alerts family right away.
-- **Fake calls / impersonation cause the biggest losses** (Rp2.09 T to Jul 2026). Komdigi says many elderly people fall for AI-cloned voices of officials and family ([Kompas, 2 Jul 2026](https://nasional.kompas.com/read/2026/07/02/20330831/komdigi-sebut-banyak-lansia-jadi-korban-scam-ai-yang-tiru-suara-pejabat)). Cek Dulu doesn't claim to detect deepfakes. It checks *what is being asked*: urgency, a transfer to a personal account, an OTP, a "new number".
-- Polda Metro Jaya warned about fake police video calls ("OTT kurir narkoba") in Oct 2025. Forward the recording or a voice note, and Cek Dulu flags it as fake police and says to hang up and call 110.
+- **Speed is everything:** about 80% of victims report more than 12 hours after being scammed, while the money moves through 4 layers of accounts within minutes ([Detik, 29 Jun 2026](https://finance.detik.com/moneter/d-8552960/ojk-bongkar-modus-tipu-tipu-nasabah-hingga-bobol-rekening)). Ronda answers *before* the transfer and alerts family right away.
+- **Fake calls / impersonation cause the biggest losses** (Rp2.09 T to Jul 2026). Komdigi says many elderly people fall for AI-cloned voices of officials and family ([Kompas, 2 Jul 2026](https://nasional.kompas.com/read/2026/07/02/20330831/komdigi-sebut-banyak-lansia-jadi-korban-scam-ai-yang-tiru-suara-pejabat)). Ronda doesn't claim to detect deepfakes. It checks *what is being asked*: urgency, a transfer to a personal account, an OTP, a "new number".
+- Polda Metro Jaya warned about fake police video calls ("OTT kurir narkoba") in Oct 2025. Forward the recording or a voice note, and Ronda flags it as fake police and says to hang up and call 110.
 
 Coverage of every research item: [RESEARCH_COVERAGE.md](RESEARCH_COVERAGE.md).
 
@@ -57,7 +59,7 @@ Telegram / WhatsApp ─webhook─▶ FastAPI ─▶ "🔎 Sedang dicek…"
      - If the number was reported, code (not the model) writes "Nomor ini sudah dilaporkan 12x di AduanNomor.id (Komdigi)."
      - A real captured response in `app/data/aduannomor_fixtures.json` is the fallback if the server's IP gets blocked. Add one with `python -m app.tools.aduannomor capture 08xx`. `ADUANNOMOR_MODE=live|fixture|off`.
    - **Bank accounts:** no live lookup, because cekrekening.id sits behind a bot check and has no public API. The reply links to https://cekrekening.id/cek-rekening and https://cekrekening.id/laporkan-rekening.
-   - **Our own count:** a `reported_numbers` table (digits only) adds "sudah 3x dilaporkan pengguna Cek Dulu". It counts distinct *other* users.
+   - **Our own count:** a `reported_numbers` table (digits only) adds "sudah 3x dilaporkan pengguna Ronda". It counts distinct *other* users.
 10. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
 
 ## Channels
@@ -134,7 +136,7 @@ Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure.
 
 ## Demo chat page (`/demo`)
 
-`/demo` is a single, mobile-width chat page in a messaging-app style, with a small "Cek Dulu demo" label in the header.
+`/demo` is a single, mobile-width chat page in a messaging-app style, with a small "Ronda demo" label in the header.
 - It calls `POST /analyze` with text, images, voice (attach a file or record with the mic button), video, and documents. Documents send only the filename, so APK lures are spotted.
 - Each verdict comes back as a bot bubble with a **🔎 Detail** toggle: steps (tool → result), model(s), confidence, and rule overrides.
 - **Protected by `DEMO_KEY`.** You type the key once; `POST /demo/login` swaps it for an HttpOnly, SameSite=Strict cookie that `/analyze` accepts. The key never appears in URLs, server logs, or the page JavaScript.
@@ -193,7 +195,7 @@ Railway sets `RAILWAY_ENVIRONMENT_ID`, which makes the app **fail closed**: a mi
 
 Submit in WhatsApp Manager, category **Utility**, language `id`, name `guardian_alert`:
 
-> Halo, {{1}} baru saja menerima pesan yang terdeteksi BAHAYA ({{2}}). Mohon hubungi beliau sebelum ada uang yang ditransfer. - Cek Dulu
+> Halo, {{1}} baru saja menerima pesan yang terdeteksi BAHAYA ({{2}}). Mohon hubungi beliau sebelum ada uang yang ditransfer. - Ronda
 
 `{{1}}` = parent name + masked number, `{{2}}` = scam category.
 

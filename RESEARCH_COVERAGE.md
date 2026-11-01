@@ -1,10 +1,10 @@
 # Research coverage
 
-How each item in [scam_research.md](scam_research.md) is handled in Cek Dulu. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
+How each item in [scam_research.md](scam_research.md) is handled in Ronda. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
 
 ## 1. Top scam types (IASC ranking)
 
-| # | Modus | How Cek Dulu handles it | Category | Live test(s) |
+| # | Modus | How Ronda handles it | Category | Live test(s) |
 |---|---|---|---|---|
 | 1 | Belanja online | Prompt pattern (too-cheap promo, DP to a personal account, "jangan lewat aplikasi"). Account numbers are spotted and flagged to the model (a transfer to a personal account is a red flag) | `belanja_online` | `belanja_online`, `toko_online_palsu_chat.png` (screenshot) |
 | 2 | Fake call / impersonation | Voice notes **and videos** are transcribed. `safe_word_check` runs for "family" requests. Advice is to call back on the old number. Guardian is alerted | `minta_pulsa`, `cs_bank_palsu`, `aparat_palsu` | `pulsa_*`, `cs_bank_*`, `voice_kecelakaan.ogg`, `voice_polisi_gadungan.ogg`, `video_polisi_gadungan.mp4` |

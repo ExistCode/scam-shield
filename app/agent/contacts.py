@@ -1,4 +1,4 @@
-"""Official contacts: the ONLY phone numbers and sites Cek Dulu ever shows.
+"""Official contacts: the ONLY phone numbers and sites Ronda ever shows.
 
 The model never writes contact details. It outputs `scam_type` (and `money_sent`); the code appends
 contacts from this map, so a number can't be hallucinated. Any other phone/short-code/account number

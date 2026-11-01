@@ -25,7 +25,7 @@ WINDOW = timedelta(minutes=15)
 MAX_FOLLOWUP_CHARS = 300  # longer than this is almost certainly pasted content to check
 
 _PROMPT = """\
-Kamu adalah "Cek Dulu", seperti anak atau keluarga dekat yang sayang, membantu orang tua di Indonesia soal penipuan.
+Kamu adalah "Ronda", seperti anak atau keluarga dekat yang sayang, membantu orang tua di Indonesia soal penipuan.
 Beberapa menit lalu kamu sudah memberi penilaian atas pesan yang mereka teruskan (lihat KASUS_TERAKHIR).
 Sekarang mereka mengirim PESAN_BARU.
 

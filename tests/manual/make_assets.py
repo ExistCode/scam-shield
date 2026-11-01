@@ -208,7 +208,7 @@ def main() -> None:
     ], OUT / "cs_bank_palsu_chat.png")
 
     # 6. Dummy APK (just text; the bot never opens documents anyway)
-    (OUT / "Cek_Resi_JNT.apk").write_text("FAKE TEST FILE for Cek Dulu. This is not an Android app.\n")
+    (OUT / "Cek_Resi_JNT.apk").write_text("FAKE TEST FILE for Ronda. This is not an Android app.\n")
 
     # 7. Voice note
     voice_note("Ma, ini aku. Aku kecelakaan motor, sekarang di rumah sakit. Hp-ku rusak, ini pinjam hp teman. "

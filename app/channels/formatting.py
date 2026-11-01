@@ -90,12 +90,12 @@ def guardian_alert_text(parent_label: str, v: Verdict) -> str:
     category = CATEGORY_LABEL.get(v.category, v.category)
     if v.money_sent:  # "aku udah transfer": it's no longer "before any money is sent"
         return (
-            f"🚨 *Darurat Cek Dulu*\n\n{parent_label} bilang mungkin *sudah terlanjur* transfer, kirim kode, "
+            f"🚨 *Darurat Ronda*\n\n{parent_label} bilang mungkin *sudah terlanjur* transfer, kirim kode, "
             f"atau pasang aplikasi ({category}).\n\nTelepon beliau sekarang dan bantu telepon call center "
             "bank untuk blokir, lalu lapor secepatnya (sebelum 12 jam) supaya dananya bisa diblokir."
         )
     return (
-        f"🔴 *Peringatan Cek Dulu*\n\n{parent_label} baru saja menerima pesan yang terdeteksi "
+        f"🔴 *Peringatan Ronda*\n\n{parent_label} baru saja menerima pesan yang terdeteksi "
         f"*BAHAYA* ({category}).\nAlasan: {v.reason}\n\nMohon hubungi beliau sebelum ada uang yang ditransfer."
     )
 

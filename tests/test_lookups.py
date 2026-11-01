@@ -165,11 +165,11 @@ def test_own_report_count_from_other_users(monkeypatch):
         case_id = repo.create_case(uid, "tg", "text", text, channel_message_id=f"tg:lookup:{i}")
         repo.save_verdict(case_id, r)
     # the third user sees the two earlier, different users; not themselves
-    assert "Nomor ini sudah 2x dilaporkan pengguna Cek Dulu." in r.verdict.lookups
-    assert "Rekening ini sudah 2x dilaporkan pengguna Cek Dulu." in r.verdict.lookups
+    assert "Nomor ini sudah 2x dilaporkan pengguna Ronda." in r.verdict.lookups
+    assert "Rekening ini sudah 2x dilaporkan pengguna Ronda." in r.verdict.lookups
     # the same user again doesn't inflate the count
     r = orchestrator.analyze(Input(type="text", text=text, user_id=users[0]))
-    assert "Nomor ini sudah 2x dilaporkan pengguna Cek Dulu." in r.verdict.lookups
+    assert "Nomor ini sudah 2x dilaporkan pengguna Ronda." in r.verdict.lookups
 
 
 # --------------------------------------------------------------------------- live (one real call)

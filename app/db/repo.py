@@ -271,7 +271,7 @@ def get_check(case_id: int) -> dict | None:
 
 
 def count_reports(kind: str, number: str, exclude_user_id: int | None = None) -> int:
-    """How many *other* Cek Dulu users got this number in a WASPADA/BAHAYA check (web test page excluded)."""
+    """How many *other* Ronda users got this number in a WASPADA/BAHAYA check (web test page excluded)."""
     digits = re.sub(r"\D", "", number)
     with get_session() as s:
         q = select(func.count(func.distinct(ReportedNumber.user_id))).where(

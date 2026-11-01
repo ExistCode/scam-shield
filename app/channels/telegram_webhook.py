@@ -33,7 +33,7 @@ CONSENT = (
 )
 
 WELCOME = (
-    "Halo! Aku *Cek Dulu* 👋\n\n"
+    "Halo! Aku *Ronda* 👋\n\n"
     "Kalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* aja ke sini. "
     "Nanti aku bilang itu penipuan atau bukan, dan harus ngapain.\n\n"
     + persona.ASK_PANGGILAN + "\n\n" + CONSENT
@@ -46,12 +46,12 @@ WELCOME_BACK = (
 
 # Sent after the first verdict, when someone's very first message was something to check.
 FIRST_TIME_NOTE = (
-    "Aku *Cek Dulu* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
+    "Aku *Ronda* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
     + persona.ASK_PANGGILAN + "\n\n" + CONSENT
 )
 
 HELP = (
-    "*Cara pakai Cek Dulu*\n"
+    "*Cara pakai Ronda*\n"
     "• Terusin pesan/foto/suara yang aneh ke sini.\n"
     "• /panggil nama : ganti panggilanmu (misal /panggil Mama)\n"
     "• /daftar_wali anak : bikin link buat anak/cucu/keluarga jadi wali\n"
@@ -176,7 +176,7 @@ def _handle_command(cmd: str, arg: str, user, chat_id: int, label: str, first_na
             except Exception:
                 log.info("could not notify parent of new guardian")
         parent_name = pp or (parent.name or "keluargamu").split(" (@")[0]
-        return (f"✅ Sekarang kamu jadi *wali* buat {parent_name} di Cek Dulu.\n"
+        return (f"✅ Sekarang kamu jadi *wali* buat {parent_name} di Ronda.\n"
                 "Kalau beliau dapat pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
     if cmd == "start":
         if p:

@@ -490,12 +490,12 @@ def lookup_lines(v: Verdict, inp: Input, result: AnalysisResult) -> None:
             lines.append(f"{label} sudah dilaporkan {count}x di AduanNomor.id (Komdigi).")
         own = repo.count_reports("phone", n, exclude_user_id=inp.user_id) if inp.user_id else 0
         if own > 0:
-            lines.append(f"{label} sudah {own}x dilaporkan pengguna Cek Dulu.")
+            lines.append(f"{label} sudah {own}x dilaporkan pengguna Ronda.")
     for a in v.scam_account_numbers:
         own = repo.count_reports("account", a, exclude_user_id=inp.user_id) if inp.user_id else 0
         if own > 0:
             label = "Rekening ini" if len(v.scam_account_numbers) == 1 else f"Rekening {a}"
-            lines.append(f"{label} sudah {own}x dilaporkan pengguna Cek Dulu.")
+            lines.append(f"{label} sudah {own}x dilaporkan pengguna Ronda.")
     v.lookups = lines
 
 

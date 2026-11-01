@@ -54,7 +54,7 @@ def test_guardian_link_and_alert(client, monkeypatch):
     sent = []
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
-    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
     monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
 
     uid = iter(range(1000, 2000))
@@ -67,11 +67,11 @@ def test_guardian_link_and_alert(client, monkeypatch):
         assert r.status_code == 200
 
     post(PARENT, "/start")
-    assert sum("Cek Dulu" in t for c, t in sent if c == str(PARENT)) == 1  # welcome only once
+    assert sum("Ronda" in t for c, t in sent if c == str(PARENT)) == 1  # welcome only once
 
     post(PARENT, "/daftar_wali")
     link_msg = sent[-1][1]
-    assert "https://t.me/CekDuluBot?start=wali_" in link_msg
+    assert "https://t.me/RondaBot?start=wali_" in link_msg
     payload = link_msg.split("?start=")[1].split()[0]
 
     post(CHILD, f"/start {payload}", first="Hans")
@@ -98,7 +98,7 @@ def test_first_message_gets_verdict_before_intro(client, monkeypatch):
     assert len(sent) == 3
     assert "Sedang dicek" in sent[0]                  # placeholder right away
     assert "*BAHAYA*" in sent[1]                      # then the answer
-    assert "Cek Dulu" in sent[2] and "setuju" in sent[2]  # intro + consent after
+    assert "Ronda" in sent[2] and "setuju" in sent[2]  # intro + consent after
     assert "Halo, saya" not in sent[1]
 
 
@@ -126,7 +126,7 @@ def test_followup_answered_in_context(client, monkeypatch):
     sent, analyzed = [], []
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
-    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
     monkeypatch.setattr(telegram_webhook, "analyze",
                         lambda inp: analyzed.append(inp.text) or AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     PARENT, CHILD = 5561001, 5561002
@@ -188,7 +188,7 @@ def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
     sent = []
     monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
     monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
-    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
     monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
     PARENT, CHILD = 5571001, 5571002
     uid = iter(range(5000, 6000))

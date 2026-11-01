@@ -38,7 +38,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Cek Dulu", version="1.0", lifespan=lifespan)
+app = FastAPI(title="Ronda", version="1.0", lifespan=lifespan)
 app.include_router(webhook_router)
 app.include_router(telegram_router)
 app.include_router(analyze_router)
@@ -51,7 +51,7 @@ def index():
 
 
 DEMO_LOGIN = """<!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Cek Dulu demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Ronda demo</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#efeae2;
 font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#111b21}
 form{background:#fff;padding:24px;border-radius:14px;width:min(340px,90vw);box-shadow:0 2px 10px rgba(0,0,0,.12)}
@@ -59,7 +59,7 @@ h1{font-size:18px;margin:0 0 4px;color:#008069}p{margin:0 0 16px;color:#667781;f
 input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d7db;border-radius:8px;font:inherit}
 button{margin-top:12px;width:100%;padding:10px;border:0;border-radius:8px;background:#008069;color:#fff;font:inherit;cursor:pointer}
 .err{color:#c0392b;font-size:14px;min-height:18px;margin-top:8px}</style></head><body>
-<form id="f"><h1>Cek Dulu demo</h1><p>Masukkan kunci demo.</p>
+<form id="f"><h1>Ronda demo</h1><p>Masukkan kunci demo.</p>
 <input id="k" type="password" autocomplete="current-password" aria-label="Kunci demo" autofocus>
 <button type="submit">Masuk</button><div class="err" id="e" role="alert"></div></form>
 <script>document.getElementById("f").onsubmit=async(ev)=>{ev.preventDefault();

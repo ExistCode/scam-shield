@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cek Dulu · chat simulator</title>
+<title>Ronda · chat simulator</title>
 <style>
   :root {
     --wa-green: #008069; --wa-teal-dark: #075e54; --wa-accent: #25d366;
@@ -211,7 +211,7 @@
   <p>Tekan <b>H</b> untuk sembunyikan semua kontrol saat merekam. Ketik balasan biasa = tidak diteruskan.</p>
   <p class="err" id="err"></p>
 </aside>
-<div class="footnote">Simulator tampilan chat · backend Cek Dulu yang sama · tekan H untuk mode rekam</div>
+<div class="footnote">Simulator tampilan chat · backend Ronda yang sama · tekan H untuk mode rekam</div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -254,7 +254,7 @@ function buildPhone(el, { name, guardian }) {
       <div class="who"><div class="name">${name} ${ico("verified")}</div><div class="sub">online</div></div>
       <div class="actions">${ico("video")}${ico("call")}${ico("dots")}</div></div>
     <div class="chat"><div class="chip">Hari ini</div>
-      <div class="chip info">🛡️ Cek Dulu membantu mengecek pesan mencurigakan. Teruskan pesan, foto, atau voice note ke sini.</div></div>
+      <div class="chip info">🛡️ Ronda membantu mengecek pesan mencurigakan. Teruskan pesan, foto, atau voice note ke sini.</div></div>
     <div class="fwdflag">${ico("fwd")} diteruskan</div>
     <div class="composer"><div class="field">${ico("emoji")}<textarea rows="1" placeholder="Ketik pesan"></textarea>
       <span class="clip">${ico("clip")}</span><span class="cam">${ico("cam")}</span></div>
@@ -265,8 +265,8 @@ function buildPhone(el, { name, guardian }) {
   setInterval(() => { $(".clock", el).textContent = now(); }, 15000);
   return phone;
 }
-const P = buildPhone($("#p-parent"), { name: "Cek Dulu" });
-const G = buildPhone($("#p-guardian"), { name: "Cek Dulu", guardian: true });
+const P = buildPhone($("#p-parent"), { name: "Ronda" });
+const G = buildPhone($("#p-guardian"), { name: "Ronda", guardian: true });
 
 function bubble(phone, side, html, { forwarded = false } = {}) {
   const cont = phone.lastSide === side;

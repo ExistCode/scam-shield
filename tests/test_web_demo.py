@@ -40,7 +40,7 @@ def test_onboarding_link_verdict_and_guardian_phone(monkeypatch):
     parent = _inbox(c, s, "parent")
     assert parent[-2].startswith("🔎 Sedang dicek")
     assert "Hans udah aku kabarin ya, Mama." in parent[-1] and "Ibu/Bapak" not in parent[-1]
-    assert "Peringatan Cek Dulu" in _inbox(c, s, "g:")[-1] and "Mama baru saja menerima" in _inbox(c, s, "g:")[-1]
+    assert "Peringatan Ronda" in _inbox(c, s, "g:")[-1] and "Mama baru saja menerima" in _inbox(c, s, "g:")[-1]
 
 
 def test_setup_prepares_a_clean_demo(monkeypatch):

@@ -117,7 +117,7 @@ def expand_url(url: str) -> tuple[str, list[str], str | None]:
     """Follow redirects safely. Returns (final_url, chain, error)."""
     chain = [url]
     current = url
-    with httpx.Client(timeout=5, follow_redirects=False, headers={"User-Agent": "Mozilla/5.0 CekDulu/1.0"}) as client:
+    with httpx.Client(timeout=5, follow_redirects=False, headers={"User-Agent": "Mozilla/5.0 Ronda/1.0"}) as client:
         for _ in range(MAX_HOPS):
             host = urlparse(current).hostname or ""
             if not _is_public_host(host):

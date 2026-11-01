@@ -39,7 +39,7 @@ HEADERS = {
     "Origin": "https://aduannomor.id",
     "Referer": PAGE,
     "Accept": "application/json",
-    "User-Agent": "Mozilla/5.0 (compatible; CekDulu/1.0; +https://github.com/ExistCode/scam-shield)",
+    "User-Agent": "Mozilla/5.0 (compatible; Ronda/1.0; +https://github.com/ExistCode/scam-shield)",
 }
 
 _cache: dict[str, tuple[float, dict | None]] = {}

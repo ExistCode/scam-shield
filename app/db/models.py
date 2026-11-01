@@ -78,7 +78,7 @@ class VerdictRow(Base):
 
 
 class UserProfile(Base):
-    """How Cek Dulu talks to someone: what to call them, how casual, and who their family is."""
+    """How Ronda talks to someone: what to call them, how casual, and who their family is."""
 
     __tablename__ = "user_profiles"
 
@@ -93,7 +93,7 @@ class UserProfile(Base):
 
 class ReportedNumber(Base):
     """A phone/account number that appeared in a WASPADA/BAHAYA check. Feeds "sudah Nx dilaporkan
-    pengguna Cek Dulu". Only digits are stored (no names, no message text)."""
+    pengguna Ronda". Only digits are stored (no names, no message text)."""
 
     __tablename__ = "reported_numbers"
 
