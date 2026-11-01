@@ -632,10 +632,10 @@ def test_analyze_endpoint_is_gated(monkeypatch):
     c = TestClient(app)
     body = {"type": "text", "text": "halo"}
 
-    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="", production=True, analyze_rate_per_min=10))
+    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="", production=True, analyze_rate_per_min=10, demo_key=""))
     assert c.post("/analyze", json=body).status_code == 403          # prod without a token: off
 
-    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="demo", production=True, analyze_rate_per_min=3))
+    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="demo", production=True, analyze_rate_per_min=3, demo_key=""))
     assert c.post("/analyze", json=body).status_code == 401
     assert c.post("/analyze", json=body, headers={"X-Analyze-Token": "nope"}).status_code == 401
     ok = [c.post("/analyze", json=body, headers={"X-Analyze-Token": "demo"}).status_code for _ in range(4)]

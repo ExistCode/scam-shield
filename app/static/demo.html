@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#008069">
+<title>Cek Dulu demo</title>
+<style>
+  :root {
+    --green: #008069; --green-dark: #075e54; --accent: #25d366; --chat: #efeae2;
+    --out: #d9fdd3; --in: #ffffff; --text: #111b21; --muted: #667781; --blue: #53bdeb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: 15px/1.38 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text); background: #d1d7db; display: flex; justify-content: center;
+  }
+  .app {
+    width: 100%; max-width: 430px; height: 100dvh; display: flex; flex-direction: column; background: var(--chat);
+    position: relative; box-shadow: 0 0 40px rgba(17, 27, 33, .18);
+  }
+
+  /* header */
+  header {
+    background: var(--green); color: #fff; display: flex; align-items: center; gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 8px) 10px 9px 6px; flex: none;
+  }
+  header svg { width: 22px; height: 22px; fill: #fff; flex: none; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: #e7fce3; display: grid; place-items: center; flex: none; }
+  .avatar svg { fill: var(--green-dark); }
+  .who { flex: 1; min-width: 0; }
+  .name { font-weight: 600; font-size: 16.5px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .tag { font-size: 10.5px; font-weight: 600; letter-spacing: .3px; background: rgba(255, 255, 255, .2);
+    border: 1px solid rgba(255, 255, 255, .35); padding: 1px 7px; border-radius: 10px; }
+  .sub { font-size: 12.5px; opacity: .88; height: 16px; }
+  .actions { display: flex; gap: 18px; padding-right: 6px; }
+
+  /* chat */
+  main {
+    flex: 1; overflow-y: auto; padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 3px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23d6cfc4' fill-opacity='.35'%3E%3Ccircle cx='10' cy='10' r='2'/%3E%3Ccircle cx='50' cy='30' r='1.5'/%3E%3Cpath d='M30 60l4-8 4 8z'/%3E%3Crect x='62' y='62' width='6' height='6' rx='1.5'/%3E%3C/g%3E%3C/svg%3E");
+    overscroll-behavior: contain;
+  }
+  .chip { align-self: center; background: #fff; color: #54656f; font-size: 12px; padding: 5px 12px; border-radius: 8px;
+    margin: 6px 0; box-shadow: 0 1px .5px rgba(11, 20, 26, .13); }
+  .chip.note { background: #ffeecd; text-align: center; max-width: 90%; }
+  .msg { max-width: 84%; padding: 6px 8px 8px 9px; border-radius: 8px; position: relative; overflow-wrap: anywhere;
+    box-shadow: 0 1px .5px rgba(11, 20, 26, .13); margin-top: 3px; animation: pop .15s ease-out; }
+  @keyframes pop { from { transform: translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+  .msg.in { align-self: flex-start; background: var(--in); border-top-left-radius: 0; }
+  .msg.out { align-self: flex-end; background: var(--out); border-top-right-radius: 0; }
+  .msg.in::before, .msg.out::before { content: ""; position: absolute; top: 0; width: 8px; height: 13px; }
+  .msg.in::before { left: -8px; background: linear-gradient(to bottom left, var(--in) 50%, transparent 50%); }
+  .msg.out::before { right: -8px; background: linear-gradient(to bottom right, var(--out) 50%, transparent 50%); }
+  .body { white-space: pre-wrap; }
+  .body a { color: #027eb5; text-decoration: none; }
+  .meta { float: right; margin: 6px 0 -4px 10px; font-size: 11px; color: var(--muted); display: inline-flex; gap: 3px; align-items: center; }
+  .meta svg { width: 16px; height: 11px; fill: #8696a0; }
+  .meta svg.read { fill: var(--blue); }
+  .media { display: block; width: calc(100% + 8px); max-width: none; margin: -2px -4px 4px; border-radius: 6px; }
+  audio.media { width: 240px; margin: 2px 0 4px; }
+  .doc { display: flex; gap: 10px; align-items: center; background: rgba(0, 0, 0, .05); padding: 10px; border-radius: 6px; margin: -2px -4px 4px; }
+  .doc b { display: grid; place-items: center; width: 34px; height: 40px; border-radius: 4px; background: #a3c75b; color: #fff; font-size: 10px; }
+  .err { color: #b3261e; }
+
+  /* Detail */
+  .detail-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: calc(100% + 17px);
+    margin: 8px -8px -8px -9px; padding: 10px; border: 0; border-top: 1px solid #e9edef; background: none;
+    color: #027eb5; font: inherit; font-size: 14.5px; cursor: pointer; border-radius: 0 0 8px 8px; }
+  .detail-btn:hover { background: #f5f6f6; }
+  .detail-btn:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+  .trace { margin-top: 12px; padding-top: 8px; border-top: 1px dashed #d1d7db; font-size: 13.5px; }
+  .trace[hidden] { display: none; }
+  .trace h4 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+  .trace ol, .trace ul { margin: 0; padding-left: 18px; }
+  .trace li { margin: 2px 0; }
+  .trace code { font-size: 12px; background: #f0f2f5; padding: 0 4px; border-radius: 4px; }
+  .trace .k { font-weight: 600; }
+
+  /* composer */
+  footer { display: flex; align-items: flex-end; gap: 6px; padding: 6px 8px calc(env(safe-area-inset-bottom) + 10px); flex: none; }
+  .field { flex: 1; background: #fff; border-radius: 24px; display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px;
+    box-shadow: 0 1px .5px rgba(11, 20, 26, .13); min-height: 48px; }
+  .field svg { width: 24px; height: 24px; fill: #8696a0; flex: none; }
+  .icon-btn { border: 0; background: none; padding: 0; cursor: pointer; display: grid; place-items: center; border-radius: 50%; }
+  .icon-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  textarea { flex: 1; border: 0; outline: none; resize: none; font: inherit; font-size: 16px; line-height: 22px; max-height: 120px;
+    height: 22px; padding: 0; background: transparent; color: var(--text); }
+  .fab { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--green); display: grid; place-items: center;
+    cursor: pointer; flex: none; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); }
+  .fab svg { width: 23px; height: 23px; fill: #fff; }
+  .fab.rec { background: #ea0038; }
+  .fab:focus-visible { outline: 3px solid #b7e4c7; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5zm-1.2 14.2L7 12.4l1.4-1.4 2.4 2.4 4.8-4.8L17 10z"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11z"/></symbol>
+  <symbol id="i-call" viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></symbol>
+  <symbol id="i-emoji" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-3.5-9A1.5 1.5 0 1 0 8.5 8a1.5 1.5 0 0 0 0 3zm7 0A1.5 1.5 0 1 0 15.5 8a1.5 1.5 0 0 0 0 3zM12 17.5a5.5 5.5 0 0 0 5-3.5H7a5.5 5.5 0 0 0 5 3.5z"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6H10v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5.3-3a5.3 5.3 0 0 1-10.6 0H5a7 7 0 0 0 6 6.9V21h2v-3.1a7 7 0 0 0 6-6.9z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M2 21 23 12 2 3v7l15 2-15 2z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-tick2" viewBox="0 0 16 11"><path d="M11.07.65 10.4.12a.5.5 0 0 0-.7.08L4.4 6.9 2.5 5.1a.5.5 0 0 0-.7 0l-.6.6a.5.5 0 0 0 0 .7l2.9 2.8a.5.5 0 0 0 .7 0l.3-.3 6.1-7.6a.5.5 0 0 0-.1-.65zm4 0-.67-.53a.5.5 0 0 0-.7.08L8.4 6.9l-.6-.6-1 1.2 1.3 1.3a.5.5 0 0 0 .7 0l.3-.3 6.1-7.6a.5.5 0 0 0-.1-.65z"/></symbol>
+</svg>
+
+<div class="app">
+  <header>
+    <svg aria-hidden="true"><use href="#i-back"/></svg>
+    <div class="avatar" aria-hidden="true"><svg><use href="#i-shield"/></svg></div>
+    <div class="who">
+      <div class="name">Cek Dulu <span class="tag">Cek Dulu demo</span></div>
+      <div class="sub" id="status" aria-live="polite">online</div>
+    </div>
+    <div class="actions" aria-hidden="true"><svg><use href="#i-video"/></svg><svg><use href="#i-call"/></svg><svg><use href="#i-dots"/></svg></div>
+  </header>
+
+  <main id="chat" aria-live="polite" aria-label="Percakapan">
+    <div class="chip">Hari ini</div>
+    <div class="chip note">🛡️ Teruskan pesan, foto, voice note, atau video yang mencurigakan. Cek Dulu akan bilang itu penipuan atau bukan.</div>
+  </main>
+
+  <footer>
+    <div class="field">
+      <svg aria-hidden="true"><use href="#i-emoji"/></svg>
+      <label for="msg" class="sr">Pesan</label>
+      <textarea id="msg" rows="1" placeholder="Ketik atau tempel pesan"></textarea>
+      <button class="icon-btn" id="attach" type="button" aria-label="Lampirkan foto, suara, video, atau file">
+        <svg><use href="#i-clip"/></svg></button>
+    </div>
+    <button class="fab" id="fab" type="button" aria-label="Rekam suara"><svg><use href="#i-mic"/></svg></button>
+    <input type="file" id="file" accept="image/*,audio/*,video/*,.apk,.pdf" hidden>
+  </footer>
+</div>
+
+<script>
+const MAX = 10 * 1024 * 1024; // same cap as /analyze
+const $ = (id) => document.getElementById(id);
+const chat = $("chat"), ta = $("msg"), fab = $("fab");
+const now = () => new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(".", ":");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function fmt(text) {  // WhatsApp-style *bold* _italic_, then links; everything escaped first
+  let t = esc(text);
+  t = t.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:]|$)/g, "$1<b>$2</b>");
+  t = t.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,!?:]|$)/g, "$1<i>$2</i>");
+  return t.replace(/(https?:\/\/[^\s<]+?)(?=[.,!?)]*(?:\s|<|$))/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+const ticks = () => `<svg viewBox="0 0 16 11" class="tick" aria-label="terkirim"><use href="#i-tick2"/></svg>`;
+
+function bubble(side, html) {
+  const m = document.createElement("div");
+  m.className = `msg ${side}`;
+  m.innerHTML = html + `<span class="meta">${now()}${side === "out" ? " " + ticks() : ""}</span>`;
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+  return m;
+}
+const setStatus = (t) => { $("status").textContent = t; };
+
+// ------------------------------------------------------------------ Detail trace (all values escaped)
+const RULES = {
+  apk_selalu_bahaya: "file .apk selalu BAHAYA", safe_browsing_hit: "Google Safe Browsing menandai link-nya",
+  qris_crc_tidak_valid: "checksum QRIS tidak valid", aman_tapi_ragu: "AMAN tapi ragu jadi WASPADA",
+  teks_disesuaikan_risiko: "teks disesuaikan dengan risiko baru", larang_100_persen_aman: 'kata "100% aman" dihapus',
+  hapus_jangan_khawatir: '"jangan khawatir" dihapus', langkah_apk_terpasang: 'tambah langkah "kalau sudah terpasang"',
+  nomor_tidak_resmi_dihapus: "nomor yang bukan kontak resmi dihapus", lapor_nomor_penipu: "tambah langkah lapor nomor",
+  cek_rekening: "tambah langkah cek rekening", qris_dibaca_otomatis: "QR dibaca otomatis",
+};
+function traceHtml(d) {
+  const det = d.details || {}, v = d.verdict;
+  const steps = (det.trace || []).map((s) => `<li><span class="k">${esc(s.step)}</span> (${esc(s.input)}) → ${esc(s.result)}</li>`).join("")
+    || "<li>Muse menilai dari teksnya saja (tanpa tool).</li>";
+  const e = det.escalation;
+  const model = e && e.spark && e.wonder
+    ? `${esc(e.spark.model)}: ${esc(e.spark.risk)} ${esc(e.spark.confidence)} → ${esc(d.model)}: ${esc(e.wonder.risk)} ${esc(e.wonder.confidence)} <span class="k">(cek ulang: ${esc(e.reason)})</span>`
+    : esc(d.model) + (e ? " (cek ulang gagal, jawaban Spark dipakai)" : "");
+  const rules = (d.overrides || []).map((o) => o.field === "risk"
+    ? `<li>Muse bilang ${esc(o.from)} → aturan <code>${esc(o.rule)}</code> ubah jadi <b>${esc(o.to)}</b></li>`
+    : `<li><code>${esc(o.rule)}</code>: ${esc(RULES[o.rule] || o.field)}</li>`).join("")
+    || "<li>Tidak ada. Jawaban Muse dipakai apa adanya.</li>";
+  return `<h4>Hasil</h4>${esc(v.risk)} · ${esc(v.category)} · keyakinan ${esc(Number(v.confidence).toFixed(2))}
+    <h4>Langkah</h4><ol>${steps}</ol>
+    <h4>Model</h4>${model}
+    <h4>Aturan keamanan</h4><ul>${rules}</ul>
+    <h4>Waktu</h4>${esc((d.latency_ms / 1000).toFixed(1))} dtk${d.case_id ? ` · cek #${esc(d.case_id)}` : ""}`;
+}
+
+// ------------------------------------------------------------------ calling /analyze
+const toB64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+
+async function check(payload, outMsg) {
+  setStatus("mengetik…");
+  const working = bubble("in", `<div class="body">${payload.type === "audio" || payload.type === "video"
+    ? "🎧 Sedang mendengarkan dan mengecek pesannya…" : payload.type === "image" ? "🔎 Sedang memeriksa gambarnya…" : "🔎 Sedang dicek…"}</div>`);
+  try {
+    const r = await fetch("/analyze", { method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (r.status === 401) { location.reload(); return; }  // demo cookie expired -> key screen
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(r.status === 429 ? "Terlalu banyak cek, tunggu sebentar ya." : (data.detail || r.statusText));
+    outMsg.querySelectorAll(".tick").forEach((t) => t.classList.add("read"));
+    working.remove();
+    const m = bubble("in", `<div class="body">${fmt(data.whatsapp_reply)}</div>
+      <div class="trace" hidden>${traceHtml(data)}</div>
+      <button type="button" class="detail-btn" aria-expanded="false">🔎 Detail</button>`);
+    const btn = m.querySelector(".detail-btn"), tr = m.querySelector(".trace");
+    btn.addEventListener("click", () => {
+      tr.hidden = !tr.hidden;
+      btn.setAttribute("aria-expanded", String(!tr.hidden));
+      btn.textContent = tr.hidden ? "🔎 Detail" : "Tutup detail";
+      if (!tr.hidden) m.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  } catch (e) {
+    working.querySelector(".body").innerHTML = `<span class="err">Maaf, gagal mengecek: ${esc(e.message)}</span>`;
+  } finally { setStatus("online"); }
+}
+
+function sendText() {
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = ""; grow(); refreshFab();
+  const out = bubble("out", `<div class="body">${fmt(text)}</div>`);
+  check({ type: /\[File terlampir:/i.test(text) ? "document" : "text", text }, out);
+}
+
+async function sendFile(file, caption = "") {
+  const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video"
+    : file.type.startsWith("audio/") ? "audio" : "document";
+  if (kind === "document") {  // never uploaded: the filename is enough to spot APK lures
+    const ext = (file.name.split(".").pop() || "file").toUpperCase().slice(0, 4);
+    const text = `${caption}\n[File terlampir: ${file.name} (${file.type || "?"})]`.trim();
+    const out = bubble("out", `<div class="doc"><b>${esc(ext)}</b><span>${esc(file.name)}</span></div>${caption ? `<div class="body">${fmt(caption)}</div>` : ""}`);
+    return check({ type: "document", text }, out);
+  }
+  if (file.size > MAX) { bubble("in", `<div class="body err">File terlalu besar (maks 10 MB).</div>`); return; }
+  const url = URL.createObjectURL(file);
+  const media = kind === "image" ? `<img class="media" src="${url}" alt="Gambar yang dikirim">`
+    : kind === "video" ? `<video class="media" src="${url}" controls playsinline></video>`
+    : `<audio class="media" src="${url}" controls></audio>`;
+  const out = bubble("out", media + (caption ? `<div class="body">${fmt(caption)}</div>` : ""));
+  check({ type: kind, text: caption, media_base64: await toB64(file), mime: file.type || undefined }, out);
+}
+
+// ------------------------------------------------------------------ composer
+function grow() { ta.style.height = "22px"; ta.style.height = Math.min(120, ta.scrollHeight) + "px"; }
+function refreshFab() {
+  const icon = recorder ? "stop" : ta.value.trim() ? "send" : "mic";
+  fab.innerHTML = `<svg><use href="#i-${icon}"/></svg>`;
+  fab.setAttribute("aria-label", recorder ? "Berhenti dan kirim rekaman" : ta.value.trim() ? "Kirim" : "Rekam suara");
+}
+ta.addEventListener("input", () => { grow(); refreshFab(); });
+ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } });
+
+let recorder = null, chunks = [];
+fab.addEventListener("click", async () => {
+  if (ta.value.trim()) return sendText();
+  if (recorder) { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream); chunks = [];
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const type = recorder.mimeType || "audio/webm";
+      recorder = null; fab.classList.remove("rec"); ta.placeholder = "Ketik atau tempel pesan"; refreshFab();
+      sendFile(new File([new Blob(chunks, { type })], "voice-note", { type }));
+    };
+    recorder.start(); fab.classList.add("rec"); ta.placeholder = "● Merekam… tekan ■ untuk kirim"; refreshFab();
+  } catch (e) { bubble("in", `<div class="body err">Mikrofon tidak bisa dipakai: ${esc(e.message)}</div>`); }
+});
+
+$("attach").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", () => {
+  const f = $("file").files[0]; $("file").value = "";
+  if (!f) return;
+  const caption = ta.value.trim(); ta.value = ""; grow(); refreshFab();
+  sendFile(f, caption);
+});
+</script>
+</body>
+</html>

@@ -132,6 +132,14 @@ The plain-text WhatsApp phrases work too.
 
 Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure. The footer names the model that actually answered. `LLM_PROVIDER=fireworks` / `FIREWORKS_API_KEY` exist only as a dev-time fallback for API outages. The fallback is off unless that key is set (it isn't for the demo), and if it ever answers, the reply footer names the model with "(cadangan)".
 
+## Demo chat page (`/demo`)
+
+`/demo` is a single, mobile-width chat page in a messaging-app style, with a small "Cek Dulu demo" label in the header.
+- It calls `POST /analyze` with text, images, voice (attach a file or record with the mic button), video, and documents. Documents send only the filename, so APK lures are spotted.
+- Each verdict comes back as a bot bubble with a **🔎 Detail** toggle: steps (tool → result), model(s), confidence, and rule overrides.
+- **Protected by `DEMO_KEY`.** You type the key once; `POST /demo/login` swaps it for an HttpOnly, SameSite=Strict cookie that `/analyze` accepts. The key never appears in URLs, server logs, or the page JavaScript.
+- Rate limits still apply. Without `DEMO_KEY`, the page is open locally and off in production.
+
 ## Demo simulator (`/wa`)
 
 `http://localhost:8000/wa` is a WhatsApp-*style* chat simulator for screen recordings. It shows two phones side by side: the parent and the guardian. It runs on the **same backend**: onboarding, panggilan, guardian alerts, follow-ups, Wonder/SAM and lookups. It uses a separate web channel (`/demo/*`) and does not talk to WhatsApp.

@@ -76,6 +76,9 @@ class Settings:
     # Shared secret for POST /analyze (sent as X-Analyze-Token). Unset in production = endpoint off.
     analyze_token: str = field(default_factory=lambda: _env("ANALYZE_TOKEN"))
     analyze_rate_per_min: int = field(default_factory=lambda: int(_env("ANALYZE_RATE_PER_MIN", "10")))
+    # Key for the /demo chat page. Entered once, then kept in an HttpOnly cookie that /analyze accepts.
+    # Unset in production = /demo is off.
+    demo_key: str = field(default_factory=lambda: _env("DEMO_KEY"))
 
     @property
     def graph_base(self) -> str:

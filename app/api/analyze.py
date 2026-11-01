@@ -1,6 +1,7 @@
 """POST /analyze: channel-free entry point for curl and the test page."""
 import base64
 import binascii
+import hashlib
 import hmac
 import threading
 import time
@@ -10,7 +11,7 @@ from typing import Literal
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.agent.orchestrator import analyze
+from app.agent.orchestrator import analyze, details
 from app.agent.schema import Input, Verdict
 from app.channels.formatting import format_reply, tools_footer
 from app.config import settings
@@ -26,8 +27,23 @@ _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
 
+DEMO_COOKIE = "cekdulu_demo"
+
+
+def demo_cookie_value() -> str:
+    """Cookie proving the /demo key was entered; derived from DEMO_KEY, so changing the key logs everyone out."""
+    return hmac.new(settings.demo_key.encode(), b"cekdulu-demo-v1", hashlib.sha256).hexdigest()
+
+
+def has_demo_access(request: Request) -> bool:
+    got = request.cookies.get(DEMO_COOKIE, "")
+    return bool(settings.demo_key and got) and hmac.compare_digest(got, demo_cookie_value())
+
+
 def _check_access(request: Request, token: str | None, per_min: int | None = None) -> None:
-    if settings.analyze_token:
+    if has_demo_access(request):
+        pass  # the /demo page (DEMO_KEY cookie); still rate limited below
+    elif settings.analyze_token:
         if not token or not hmac.compare_digest(token, settings.analyze_token):
             raise HTTPException(401, "missing or wrong X-Analyze-Token")
     elif settings.production:
@@ -63,6 +79,7 @@ class AnalyzeResponse(BaseModel):
     model_risk: str | None = None
     overrides: list[dict] = []
     image_mode: str | None = None
+    details: dict = {}  # what's stored for the check: trace, overrides, escalation, lookups ("🔎 Detail")
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -108,4 +125,5 @@ def analyze_endpoint(req: AnalyzeRequest, request: Request,
         model_risk=result.model_risk,
         overrides=result.overrides,
         image_mode=result.image_mode,
+        details=details(result),
     )
