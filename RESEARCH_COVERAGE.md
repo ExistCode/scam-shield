@@ -2,6 +2,8 @@
 
 How each item in [scam_research.md](scam_research.md) is handled in Ronda. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
 
+Real-world scammer wording, with sources, is in [SCAM_WORDING.md](SCAM_WORDING.md). It covers 9 more live cases (all pass): the BRI tariff letter, the "salah kirim kode" WhatsApp takeover, the wedding invitation and e-tilang APKs, vote links asking for a PIN, DANA Kaget, investment "mentor" groups, TikTok task jobs, and "aku menemukan kontakmu" openers.
+
 ## 1. Top scam types (IASC ranking)
 
 | # | Modus | How Ronda handles it | Category | Live test(s) |

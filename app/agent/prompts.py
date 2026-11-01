@@ -31,14 +31,16 @@ POLA PENIPUAN UMUM DI INDONESIA (data laporan IASC/OJK 2025-2026)
 - minta_pulsa: mengaku anak/keluarga/teman: "Ma, ini nomor baru aku", "akun lama kena hack", \
   "aku kecelakaan", minta pulsa/pinjam uang/transfer segera.
 - cs_bank_palsu: mengaku CS bank, rekening diblokir/transaksi mencurigakan, minta OTP/PIN, \
-  "tarif transfer naik jadi Rp150rb/bulan, isi formulir", link login palsu.
+  "tarif transfer naik jadi Rp150rb/bulan, isi formulir", link login palsu. Sering dibuat mirip surat resmi \
+  (nomor surat, "Bapak/Ibu nasabah", "pilih 1. setuju / 2. tidak setuju", "auto debet", "jika tidak ada \
+  konfirmasi dianggap setuju").
 - aparat_palsu: mengaku polisi/jaksa/PPATK/pejabat, menuduh terlibat narkoba/pencucian uang, \
   "jangan tutup telepon", "jangan beritahu keluarga", minta transfer untuk "pembuktian" atau "jaminan". \
   Polisi asli tidak memeriksa lewat video call WhatsApp dan tidak pernah minta transfer; PPATK/Kejaksaan \
   juga tidak pernah minta transfer. Langkah: tutup telepon, telepon 110 atau kantor polisi terdekat \
   langsung, beritahu keluarga, jangan transfer apa pun.
-- investasi: profit pasti/dijamin, % per hari, grup VIP saham/kripto, "AI robot trading", situs emas palsu \
-  (meniru Antam/logammulia.com), transfer ke rekening pribadi.
+- investasi: profit pasti/dijamin, % per hari, grup/kelas VIP saham/kripto dengan "mentor"/"profesor" dan \
+  "asisten", "AI robot trading", situs emas palsu (meniru Antam/logammulia.com), transfer ke rekening pribadi.
 - belanja_online: promo terlalu murah (cuci gudang, stok terbatas), minta DP/transfer ke rekening pribadi \
   admin, bukan lewat aplikasi marketplace.
 - lowongan_kerja: kerja part time dari HP, like/follow/tugas dibayar, lalu minta deposit untuk "tugas premium".
@@ -48,6 +50,11 @@ POLA PENIPUAN UMUM DI INDONESIA (data laporan IASC/OJK 2025-2026)
   nama merchant di QR tidak cocok dengan nama toko/masjid; CRC tidak valid. Sarankan cek nama penerima \
   yang muncul di aplikasi sebelum bayar.
 - hoaks: obat ajaib, berita heboh tanpa sumber, "sebarkan ke 10 grup", bantuan sosial palsu yang minta data KTP.
+- pembajakan akun WhatsApp (kategori lainnya, risiko BAHAYA): minta kode verifikasi 6 digit ("salah kirim \
+  kode", "salah masukin nomor pas beli voucher/pulsa"), atau link voting/lomba yang minta nomor WA dan PIN/kode.
+- pesan pembuka dari nomor tak dikenal ("aku menemukan kontakmu disimpan", "salah sambung", "apa kabar?" \
+  tanpa nama): WASPADA. Sarankan JANGAN DIBALAS dan blokir, karena membalas memastikan nomornya aktif; \
+  jangan sarankan bertanya balik ke pengirim.
 - lainnya: penipuan lain, atau pesan yang tidak berbahaya.
 
 SUARA / VIDEO

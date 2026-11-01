@@ -195,3 +195,47 @@
   text: "Tadi ada CS BCA telepon, katanya rekening saya diblokir. Saya sudah kirim kode OTP-nya dan sudah transfer 3 juta ke rekening yang dia kasih. Ini gimana ya?"
   expected: BAHAYA
   must_mention: ["1500888", "iasc\\.ojk\\.go\\.id"]
+# ---- Real-world wording (see SCAM_WORDING.md). Reconstructed from wording quoted in news reports;
+# numbers, names and links are made up.
+- id: tarif_bri_surat
+  type: text
+  text: "No: 0311/Bank BRI/VI/2024\nSehubungan dengan adanya peningkatan kualitas layanan transaksi transfer antar bank di tahun 2024, mulai hari ini malam pukul 00.00 WIB, Bank BRI melakukan perubahan skema tarif transaksi dari Rp 6.500/transaksi dan BI Fast Rp 2.500 akan diubah menjadi Rp 150 ribu per bulan (unlimited).\nUntuk perubahan skema tarif transaksi rekening Bank BRI dengan ini Bapak/Ibu nasabah Bank BRI\n1. Setuju dengan tarif baru Rp 150 ribu per bulan unlimited transaksi.\n2. Tidak setuju dan mau tetap ke tarif lama Rp 6.500/ BI Fast Rp 2.500 per transaksi, silakan isi formulir: https://bri-tarif-layanan.web.app\nUntuk penagihan potongan setiap bulannya akan langsung auto debet dari rekening tabungan. Jika tidak ada konfirmasi dianggap setuju."
+  expected: BAHAYA
+- id: otp_salah_kirim
+  type: text
+  text: "Kak maaf aku salah masukin nomor pas beli voucher game, kodenya kekirim ke nomor kakak. Tolong kirimin 6 digit kodenya ya kak, penting banget 🙏"
+  expected: BAHAYA
+  must_mention: ["kode|otp"]
+- id: kontak_tersimpan
+  type: text
+  text: "Hai, aku menemukan kontakmu disimpan di kontakku, bisa ingatkan aku di mana kita berbincang sebelumnya?"
+  expected: WASPADA
+  accept: [BAHAYA]
+  must_mention: ["jangan (di)?bal[ae]s|nggak usah (di)?bal[ae]s|tidak usah (di)?bal[ae]s|abaikan"]
+- id: undangan_apk_kehadiran
+  type: document
+  text: "Kami harap kehadirannya 🙏\n[File terlampir: Surat Undangan Pernikahan Digital.apk (application/vnd.android.package-archive)]"
+  expected: BAHAYA
+  must_mention: ["terlanjur|sudah (di)?pasang"]
+- id: etle_apk
+  type: document
+  text: "KONFIRMASI ETLE: Kendaraan Anda terekam melanggar lalu lintas. Segera buka surat tilang terlampir. Jika tidak dikonfirmasi dalam 2x24 jam, STNK akan diblokir.\n[File terlampir: Surat_Tilang_ETLE.apk (application/vnd.android.package-archive)]"
+  expected: BAHAYA
+- id: voting_pin_wa
+  type: text
+  text: "Halo kak, tolong bantu vote keponakanku di lomba foto anak ya, tinggal klik aja: https://vote-lomba-anak.site/pilih . Nanti diminta verifikasi nomor WA dan kode PIN 6 digit, makasih banyak kak 🙏"
+  expected: BAHAYA
+- id: dana_kaget_link
+  type: text
+  text: "🎁 DANA KAGET HARI INI! Saldo gratis Rp250.000 untuk 100 orang pertama. Klaim sekarang sebelum habis: https://dana-kaget-promo.xyz/klaim (masukkan nomor DANA dan PIN untuk verifikasi)"
+  expected: BAHAYA
+- id: investasi_grup_mentor
+  type: text
+  text: "Selamat bergabung di Kelas Investasi Saham VIP 📈 Saya asisten Prof. Hendra. Mentor kami membagikan sinyal saham gratis setiap hari, member rata-rata profit 10% per hari. Untuk masuk kelas premium cukup deposit Rp2 juta ke rekening admin BCA 7720198844."
+  expected: BAHAYA
+  must_mention: ["081-157-157-157"]
+- id: loker_tiktok_tugas
+  type: text
+  text: "Halo kak, kami dari tim marketing TikTok Shop sedang membuka kerja paruh waktu dari HP. Tugasnya cuma like dan follow akun, 1 tugas dibayar Rp15.000, sehari bisa dapat Rp300.000-Rp1.500.000. Minat? Balas YA untuk mulai 😊"
+  expected: BAHAYA
+  accept: [WASPADA]
