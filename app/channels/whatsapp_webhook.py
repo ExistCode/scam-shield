@@ -237,12 +237,12 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         inp.media_bytes = None  # drop media as soon as analysis is done
 
         # Alert first, so the reply can say truthfully whether the guardian was told.
-        status = notify.alert_guardians(user.id, _parent_label(user.name, sender), result.verdict)
+        status, names = notify.alert_guardians(user.id, _parent_label(user.name, sender), result.verdict)
         if status == "sent":
             repo.mark_alerted(case_id)
         alerted = status == "sent"
-        hint = "" if first_time else "*daftar wali 08xxxxxxxxxx*"
-        whatsapp_sender.send_text(sender, format_reply(result.verdict, guardian_line(status, hint), tools_footer(result)), reply_to=mid)
+        line = guardian_line(status, "*daftar wali 08xxxxxxxxxx*", names)
+        whatsapp_sender.send_text(sender, format_reply(result.verdict, line, tools_footer(result)), reply_to=mid)
         if first_time:  # answer first, introduce ourselves after
             whatsapp_sender.send_text(sender, FIRST_TIME_NOTE)
             repo.set_consent(user.id)

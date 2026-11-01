@@ -23,23 +23,33 @@ def alert_guardian(guardian: User, parent_label: str, verdict: Verdict) -> bool:
     return False
 
 
-def alert_guardians(parent_user_id: int, parent_label: str, verdict: Verdict) -> str:
-    """Alert the parent's guardians for a verdict. Returns what happened, for an honest reply line:
-    "sent" | "already" (cooldown) | "failed" | "none" (no guardian) | "" (not BAHAYA)."""
+def short_name(user: User) -> str:
+    """How the parent sees a guardian: their name, else a masked number."""
+    if user.name:
+        return user.name
+    if user.wa_number:
+        n = user.wa_number
+        return "+" + n[:4] + "****" + n[-3:] if len(n) > 7 else "+" + n
+    return "wali (Telegram)"
+
+
+def alert_guardians(parent_user_id: int, parent_label: str, verdict: Verdict) -> tuple[str, list[str]]:
+    """Alert the parent's guardians for a verdict. Returns (status, names actually alerted) so the reply
+    can say exactly what happened.
+    status: "sent" | "already" (cooldown) | "failed" | "none" (no guardian) | "" (not BAHAYA)."""
     from app.agent import guardian_policy
     from app.db import repo
 
     if verdict.risk != "BAHAYA":
-        return ""
-    if not repo.active_guardians(parent_user_id):
-        return "none"
+        return "", []
+    guardians = repo.active_guardians(parent_user_id)
+    if not guardians:
+        return "none", []
     targets = guardian_policy.guardians_to_alert(parent_user_id, verdict)
     if not targets:
-        return "already"
-    sent = False
-    for g in targets:
-        sent = alert_guardian(g, parent_label, verdict) or sent
-    return "sent" if sent else "failed"
+        return "already", [short_name(g) for g in guardians]
+    names = [short_name(g) for g in targets if alert_guardian(g, parent_label, verdict)]
+    return ("sent", names) if names else ("failed", [short_name(g) for g in targets])
 
 
 def describe(user: User) -> str:

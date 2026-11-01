@@ -200,17 +200,19 @@ def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
 
     post(PARENT, "/start")
     post(PARENT, "Paket tertahan, buka aplikasi ini")      # no guardian yet
-    assert "sudah kami kabari" not in verdict_msgs()[-1] and "/daftar_wali" in verdict_msgs()[-1]
+    assert "kabari" not in verdict_msgs()[-1]
+    assert "Belum ada wali terdaftar, ketik /daftar_wali" in verdict_msgs()[-1]
 
     post(PARENT, "/daftar_wali")
     post(CHILD, "/start " + sent[-1][1].split("?start=")[1].split()[0], first="Hans")
     post(PARENT, "Paket tertahan lagi, buka aplikasi ini")  # guardian alerted
-    assert "✅ Wali Ibu/Bapak sudah kami kabari." in verdict_msgs()[-1]
+    assert "✅ Sudah kami kabari: Hans" in verdict_msgs()[-1]
+    assert "Belum ada wali" not in verdict_msgs()[-1]
     post(PARENT, "Paket tertahan ketiga kali")               # cooldown: say so, don't re-alert
-    assert "beberapa menit lalu" in verdict_msgs()[-1]
+    assert "Sudah kami kabari beberapa menit lalu: Hans" in verdict_msgs()[-1]
 
     monkeypatch.setattr(telegram_bot, "send_guardian_alert", lambda *a: (_ for _ in ()).throw(RuntimeError("down")))
     from app.agent import guardian_policy
     monkeypatch.setattr(guardian_policy, "COOLDOWN", guardian_policy.timedelta(0))
     post(PARENT, "Paket tertahan keempat")                   # delivery failed: say so
-    assert "belum terkirim" in verdict_msgs()[-1]
+    assert "belum terkirim" in verdict_msgs()[-1] and "Sudah kami kabari" not in verdict_msgs()[-1]

@@ -26,19 +26,20 @@ CATEGORY_LABEL = {
 }
 
 
-def guardian_line(status: str | None, register_hint: str = "") -> str:
-    """What actually happened to the guardian alert. Never claim an alert that wasn't sent.
+def guardian_line(status: str | None, register_hint: str = "", names: list[str] | None = None) -> str:
+    """Written from what actually happened to the guardian alerts. Never claims an alert that wasn't sent.
 
-    status: "sent" | "already" | "failed" | "none" | None (not BAHAYA / no user)
+    status: "sent" | "already" (cooldown: alerted a few minutes ago) | "failed" | "none" | "" (not BAHAYA)
     """
+    who = ", ".join(names or []) or "wali Ibu/Bapak"
     if status == "sent":
-        return "✅ Wali Ibu/Bapak sudah kami kabari."
+        return f"✅ Sudah kami kabari: {who}"
     if status == "already":
-        return "Wali Ibu/Bapak sudah kami kabari beberapa menit lalu soal pesan seperti ini."
+        return f"✅ Sudah kami kabari beberapa menit lalu: {who}"
     if status == "failed":
-        return "⚠️ Pesan ke wali belum terkirim. Tolong telepon anak/keluarga langsung ya."
+        return f"⚠️ Pesan ke {who} belum terkirim. Tolong telepon mereka langsung ya."
     if status == "none" and register_hint:
-        return f"Belum ada wali yang terdaftar. Supaya keluarga ikut dikabari, ketik: {register_hint}"
+        return f"Belum ada wali terdaftar, ketik {register_hint}"
     return ""
 
 

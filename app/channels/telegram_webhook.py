@@ -291,12 +291,11 @@ def process_update(update: dict) -> None:
             inp.media_bytes = None
 
         # Alert first, so the reply can say truthfully whether the guardian was told.
-        status = notify.alert_guardians(user.id, label, result.verdict)
+        status, names = notify.alert_guardians(user.id, label, result.verdict)
         if status == "sent":
             repo.mark_alerted(case_id)
         alerted = status == "sent"
-        hint = "" if first_time else "/daftar_wali"  # the intro below already explains it
-        reply = format_reply(result.verdict, guardian_line(status, hint), tools_footer(result))
+        reply = format_reply(result.verdict, guardian_line(status, "/daftar_wali", names), tools_footer(result))
         telegram_bot.edit_or_send(chat_id, working_id, reply, reply_to=mid)
         if first_time:
             telegram_bot.send_text(chat_id, FIRST_TIME_NOTE)
