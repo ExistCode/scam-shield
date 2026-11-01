@@ -108,9 +108,21 @@ The plain-text WhatsApp phrases work too.
 | **Muse Spark** (`muse-spark-1.3`) via the Meta Model API | The agent brain: picks and calls tools, returns a structured verdict JSON, answers follow-ups |
 | **Muse Spark image input** | Reading screenshots, transfer proofs and QRIS photos in the same verdict call |
 | **Muse Voice Transcribe** (`muse-voice-transcribe-1.0`) | Forwarded voice notes and video call recordings → text (Indonesian language bias) |
+| **Muse Wonder** (`muse-wonder-1.0`) | Second opinion: when Spark's confidence is below 0.7 (or it can't answer), the same request with tools and image goes to Wonder once. Footer: "Muse Spark → Muse Wonder (cek ulang)". Live: Spark 0.65 → Wonder, about 13 s instead of about 5 s |
+| **SAM 3.1** (`sam-3.1`) | When Muse sees a QR code that the local scan missed (a small, blurry QRIS sticker in a 12 MP warung photo), `decode_qris` asks SAM for "QR code", crops it and decodes the crop |
 | **WhatsApp Cloud API** | Second channel: webhook, signature check, replies, `guardian_alert` utility template |
 
-Every verdict is produced by Muse Spark. `LLM_PROVIDER=fireworks` / `FIREWORKS_API_KEY` exist only as a dev-time fallback for API outages. The fallback is off unless that key is set (it isn't for the demo), and if it ever answers, the reply footer names the model with "(cadangan)".
+Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure. The footer names the model that actually answered. `LLM_PROVIDER=fireworks` / `FIREWORKS_API_KEY` exist only as a dev-time fallback for API outages. The fallback is off unless that key is set (it isn't for the demo), and if it ever answers, the reply footer names the model with "(cadangan)".
+
+## Demo simulator (`/wa`)
+
+`http://localhost:8000/wa` is a WhatsApp-*style* chat simulator for screen recordings. It shows two phones side by side: the parent and the guardian. It runs on the **same backend**: onboarding, panggilan, guardian alerts, follow-ups, Wonder/SAM and lookups. It uses a separate web channel (`/demo/*`) and does not talk to WhatsApp.
+- The panel has one-click scenarios: APK, "polisi" voice note and video, a QRIS photo that needs SAM, the "nomor baru" scam, the undian scam, a safe message, and follow-ups such as "aduh aku udah transfer".
+- "Langsung siap" prepares Mama + wali Hans with an empty chat.
+- Press **H** to hide all controls while recording.
+- On a deployed server it needs the `ANALYZE_TOKEN` (field in the panel).
+
+Say in the video that this is a simulator of the chat flow. The live channels are Telegram and the WhatsApp Cloud API adapter.
 
 ## Setup
 
@@ -175,6 +187,6 @@ Submit in WhatsApp Manager, category **Utility**, language `id`, name `guardian_
 
 ## Roadmap
 
-**Official Komdigi / OJK API integration** (number and account checks; today we use a public lookup and links), APK static checks, SAM 3.1, Muse Wonder escalation for low-confidence cases, IASC report filing, pgvector similar-case lookup, Prompt Guard, more regional languages.
+**Official Komdigi / OJK API integration** (number and account checks; today we use a public lookup and links), APK static checks, IASC report filing, pgvector similar-case lookup, Prompt Guard, more regional languages.
 
 *Cek dulu, baru transfer.*
