@@ -74,8 +74,8 @@ def test_guardian_link_and_alert(client, monkeypatch):
     payload = link_msg.split("?start=")[1].split()[0]
 
     post(CHILD, f"/start {payload}", first="Hans")
-    assert any(c == str(CHILD) and "sekarang *wali*" in t for c, t in sent)
-    assert any(c == str(PARENT) and "Hans" in t and "jadi wali" in t for c, t in sent)
+    assert any(c == str(CHILD) and "jadi *wali*" in t for c, t in sent)
+    assert any(c == str(PARENT) and "Hans" in t and "ikut jagain" in t for c, t in sent)
 
     post(PARENT, "Paket Anda tertahan, install Cek_Resi.apk")
     assert any(c == str(PARENT) and "*BAHAYA*" in t for c, t in sent)
@@ -203,22 +203,22 @@ def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
 
     post(PARENT, "/start")
     post(PARENT, "Paket tertahan, buka aplikasi ini")      # no guardian yet
-    assert "kabari" not in verdict_msgs()[-1]
-    assert "Belum ada wali terdaftar, ketik /daftar_wali" in verdict_msgs()[-1]
+    assert "udah aku kabarin" not in verdict_msgs()[-1]
+    assert "Belum ada keluarga yang didaftarin. Ketik /daftar_wali" in verdict_msgs()[-1]
 
     post(PARENT, "/daftar_wali")
     post(CHILD, "/start " + sent[-1][1].split("?start=")[1].split()[0], first="Hans")
     post(PARENT, "Paket tertahan lagi, buka aplikasi ini")  # guardian alerted
-    assert "✅ Sudah kami kabari: Hans" in verdict_msgs()[-1]
-    assert "Belum ada wali" not in verdict_msgs()[-1]
+    assert "✅ Hans udah aku kabarin ya." in verdict_msgs()[-1]
+    assert "Belum ada" not in verdict_msgs()[-1]
     post(PARENT, "Paket tertahan ketiga kali")               # cooldown: say so, don't re-alert
-    assert "Sudah kami kabari beberapa menit lalu: Hans" in verdict_msgs()[-1]
+    assert "Hans udah aku kabarin tadi ya." in verdict_msgs()[-1]
 
     monkeypatch.setattr(telegram_bot, "send_guardian_alert", lambda *a: (_ for _ in ()).throw(RuntimeError("down")))
     from app.agent import guardian_policy
     monkeypatch.setattr(guardian_policy, "COOLDOWN", guardian_policy.timedelta(0))
     post(PARENT, "Paket tertahan keempat")                   # delivery failed: say so
-    assert "belum terkirim" in verdict_msgs()[-1] and "Sudah kami kabari" not in verdict_msgs()[-1]
+    assert "belum berhasil ngabarin Hans" in verdict_msgs()[-1] and "udah aku kabarin" not in verdict_msgs()[-1]
 
 
 def test_followup_scrubs_invented_numbers(monkeypatch):

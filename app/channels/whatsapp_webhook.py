@@ -11,7 +11,7 @@ from collections import OrderedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
-from app.agent import followup
+from app.agent import followup, persona
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, whatsapp_media, whatsapp_sender
@@ -27,40 +27,40 @@ _seen: OrderedDict[str, None] = OrderedDict()
 _SEEN_MAX = 2000
 
 CONSENT = (
-    "_Pesan yang diteruskan disimpan sebagai teks untuk pengecekan; foto dan suara tidak disimpan. "
-    "Dengan melanjutkan, Ibu/Bapak setuju dengan ini._"
+    "_Pesan yang diteruskan aku simpan sebagai teks buat pengecekan; foto dan suara nggak disimpan. "
+    "Kalau lanjut pakai, berarti setuju ya._"
 )
 
 WELCOME = (
-    "Halo, saya *Cek Dulu* 👋\n\n"
-    "Kalau dapat pesan, foto, atau pesan suara yang mencurigakan, cukup *teruskan (forward)* ke sini. "
-    "Saya akan bilang apakah itu penipuan dan apa yang sebaiknya dilakukan.\n\n"
-    "Daftarkan anak/keluarga sebagai *wali* supaya mereka dikabari kalau ada bahaya:\n"
-    "ketik: *daftar wali 08xxxxxxxxxx*\n\n"
-    + CONSENT
+    "Halo! Aku *Cek Dulu* 👋\n\n"
+    "Kalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* aja ke sini. "
+    "Nanti aku bilang itu penipuan atau bukan, dan harus ngapain.\n\n"
+    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
 )
 
 FIRST_TIME_NOTE = (
-    "Saya *Cek Dulu* 👋 Kapan saja dapat pesan, foto, atau pesan suara yang mencurigakan, "
-    "teruskan saja ke sini.\n"
-    "Supaya anak/keluarga ikut dikabari kalau ada bahaya, ketik: *daftar wali 08xxxxxxxxxx*\n\n"
-    + CONSENT
+    "Aku *Cek Dulu* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
+    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
 )
 
 HELP = (
     "*Cara pakai Cek Dulu*\n"
-    "• Teruskan pesan/foto/suara yang mencurigakan ke sini.\n"
-    "• *daftar wali 08xx* : daftarkan anak/keluarga sebagai wali\n"
+    "• Terusin pesan/foto/suara yang aneh ke sini.\n"
+    "• *panggil <nama>* : ganti panggilanmu (misal: panggil Mama)\n"
+    "• *daftar wali 08xx anak Hans* : daftarin anak/cucu/keluarga jadi wali\n"
     "• *hapus wali* : hapus semua wali\n"
     "• *kata aman <petunjuk>* : simpan *petunjuk* kata aman keluarga (jangan tulis kata aman-nya)\n"
-    "• *status* : lihat wali yang terdaftar"
+    "• *gaya santai* / *gaya sopan* : atur gaya ngobrolku\n"
+    "• *status* : lihat siapa aja yang ikut jagain"
 )
 
-_CMD_REGISTER = re.compile(r"^\s*daftar\s+wali\s+([+\d][\d\s\-]{7,20})\s*$", re.I)
+_CMD_REGISTER = re.compile(r"^\s*daftar\s+wali\s+([+\d][\d\s\-]{6,20}\d)(?:\s+([a-z]+))?(?:\s+(\D{1,40}))?\s*$", re.I)
 _CMD_UNLINK = re.compile(r"^\s*hapus\s+wali\s*$", re.I)
 _CMD_SAFEWORD = re.compile(r"^\s*kata\s+aman\s+(.{2,200})$", re.I | re.S)
 _CMD_HELP = re.compile(r"^\s*(bantuan|help|menu|halo|hai|hi|hello|mulai|start)\s*[!.?]*\s*$", re.I)
 _CMD_STATUS = re.compile(r"^\s*status\s*$", re.I)
+_CMD_PANGGIL = re.compile(r"^\s*panggil(?:\s+(?:aku|saya))?\s+(.{1,40})$", re.I)
+_CMD_GAYA = re.compile(r"^\s*gaya\s+(santai|sopan)\s*$", re.I)
 
 
 def verify_signature(body: bytes, header: str | None) -> bool:
@@ -118,37 +118,62 @@ def _parent_label(name: str | None, number: str) -> str:
 
 def _handle_command(text: str, user_id: int, sender: str, name: str | None) -> str | None:
     """Returns a reply if the text is a command, else None."""
+    profile = repo.get_profile(user_id)
+    p = persona.panggilan(profile)
+    v = f", {p}" if p else ""
     if m := _CMD_REGISTER.match(text):
         number = repo.normalize_number(m.group(1))
         if not number:
-            return "Nomor wali tidak valid. Contoh: *daftar wali 081234567890*"
+            return "Nomor walinya nggak valid. Contoh: *daftar wali 081234567890 anak Hans*"
         if number == sender:
-            return "Nomor wali harus berbeda dari nomor Ibu/Bapak sendiri."
-        repo.link_guardian(user_id, number)
+            return "Nomor wali harus beda dari nomormu sendiri ya."
+        relation = (m.group(2) or "").lower()
+        extra = m.group(3) or ""
+        if relation and relation not in persona.RELATION_CODE:  # "daftar wali 08xx Hans"
+            extra, relation = f"{m.group(2)} {extra}".strip(), ""
+        relation = relation or "keluarga"
+        guardian = repo.link_guardian(user_id, number)
+        gname = (extra.strip().split() or [None])[0]
+        gname = gname[:1].upper() + gname[1:] if gname else "+" + number[:4] + "****" + number[-3:]
+        repo.add_profile_contact(user_id, gname, relation, guardian.id)
         try:
             whatsapp_sender.send_text(
                 number,
-                f"Halo! {_parent_label(name, sender)} mendaftarkan Anda sebagai *wali* di Cek Dulu. "
-                "Anda akan dikabari kalau beliau menerima pesan penipuan yang berbahaya.",
+                f"Halo! {_parent_label(name, sender)} daftarin kamu sebagai *wali* di Cek Dulu. "
+                "Kamu bakal dikabarin kalau beliau dapat pesan penipuan yang bahaya.",
             )
         except Exception:
             log.info("guardian intro not delivered (likely outside 24h window / not a test recipient)")
-        return (f"✅ Wali terdaftar: +{number}\nKalau ada pesan BAHAYA, wali akan langsung dikabari.\n\n"
-                "Tips: buat *kata aman* keluarga, lalu simpan petunjuknya dengan: *kata aman <petunjuk>*")
+        return (f"✅ {gname} ({relation}) sekarang ikut jagain{' ' + p if p else ''}. "
+                f"Kalau ada pesan bahaya, {gname} langsung aku kabarin.\n\n"
+                "Tips: bikin *kata aman* keluarga, terus simpan petunjuknya: *kata aman <petunjuk>*")
     if _CMD_UNLINK.match(text):
         n = repo.unlink_guardians(user_id)
-        return "Semua wali sudah dihapus." if n else "Belum ada wali yang terdaftar."
+        repo.clear_profile_contacts(user_id)
+        return "Semua wali udah dihapus." if n else "Belum ada wali yang terdaftar."
     if m := _CMD_SAFEWORD.match(text):
         n = repo.set_safe_word_hint(user_id, m.group(1).strip())
         if not n:
-            return "Daftarkan wali dulu: *daftar wali 08xx*, lalu simpan petunjuk kata aman."
-        return ("✅ Petunjuk kata aman disimpan. Kalau ada yang mengaku keluarga dan minta uang, "
-                "minta dia sebutkan kata aman itu.")
+            return "Daftarin wali dulu: *daftar wali 08xx anak Hans*, baru simpan petunjuk kata aman."
+        return ("✅ Petunjuk kata aman udah disimpan. Kalau ada yang ngaku keluarga terus minta uang, "
+                "suruh dia sebutin kata amannya.")
+    if m := _CMD_GAYA.match(text):
+        style = m.group(1).lower()
+        repo.set_style(user_id, style)
+        return ("Oke, aku ngobrolnya santai aja ya 😊" if style == "santai"
+                else f"Baik{v}, mulai sekarang saya pakai bahasa yang lebih sopan.")
+    if m := _CMD_PANGGIL.match(text):
+        new = persona.parse_panggilan(m.group(1))
+        if not new:
+            return persona.ASK_PANGGILAN
+        repo.set_panggilan(user_id, new)
+        return persona.panggilan_saved(new, "*daftar wali 08xx anak Hans*")
     if _CMD_STATUS.match(text):
-        gs = repo.active_guardians(user_id)
-        if not gs:
-            return "Belum ada wali. Ketik: *daftar wali 08xxxxxxxxxx*"
-        return "Wali terdaftar:\n" + "\n".join(f"• {notify.describe(g)}" for g in gs)
+        fam = profile["contacts"]
+        if not repo.active_guardians(user_id):
+            return "Belum ada yang ikut jagain. Ketik: *daftar wali 08xxxxxxxxxx anak Hans*"
+        head = f"Panggilanmu: *{p}*\n" if p else ""
+        return head + "Yang ikut jagain:\n" + "\n".join(f"• {c['name']} ({c.get('relation') or 'keluarga'})" for c in fam)
     if _CMD_HELP.match(text):
         return HELP
     return None
@@ -178,13 +203,13 @@ def _build_input(msg: dict, user_id: int) -> tuple[Input | None, str]:
     return None, mtype or "unknown"
 
 
-def _handle_followup(text: str, user, sender: str, mid: str) -> bool:
+def _handle_followup(text: str, user, sender: str, mid: str, profile: dict | None = None) -> bool:
     if followup.looks_like_new_content(text):
         return False
     last = repo.last_case_for(user.id, followup.WINDOW)
     if not last:
         return False
-    ans = followup.answer(text, last)
+    ans = followup.answer(text, last, profile)
     if not ans or ans.intent != "followup":
         return False
     whatsapp_sender.send_text(sender, ans.reply, reply_to=mid)
@@ -208,19 +233,36 @@ def process_message(msg: dict, profile_name: str | None) -> None:
             reply = _handle_command(body, user.id, sender, user.name)
             if reply:
                 if first_time:
-                    reply = WELCOME if reply is HELP else reply + "\n\n" + CONSENT
+                    if reply is HELP:
+                        reply = WELCOME
+                        repo.set_awaiting(user.id, "panggilan")
+                    else:
+                        reply += "\n\n" + CONSENT
                 whatsapp_sender.send_text(sender, reply, reply_to=mid)
                 if first_time:
                     repo.set_consent(user.id)
                 return
             forwarded = (msg.get("context") or {}).get("forwarded") or (msg.get("context") or {}).get("frequently_forwarded")
-            if not forwarded and _handle_followup(body, user, sender, mid):
+            profile = repo.get_profile(user.id)
+            # Onboarding answer: "Mau aku panggil apa?" -> "Mama"
+            if not forwarded and profile.get("awaiting") == "panggilan" \
+                    and not repo.last_case_for(user.id, followup.WINDOW):
+                name = persona.parse_panggilan(body)
+                if name:
+                    repo.set_panggilan(user.id, name)
+                    whatsapp_sender.send_text(sender, persona.panggilan_saved(name, "*daftar wali 08xx anak Hans*"),
+                                              reply_to=mid)
+                    return
+            if not forwarded and _handle_followup(body, user, sender, mid, profile):
                 return
 
         inp, input_type = _build_input(msg, user.id)
+        profile = repo.get_profile(user.id)
+        if inp is not None:
+            inp.profile = profile
         if inp is None:
             whatsapp_sender.send_text(
-                sender, "Maaf, jenis pesan ini belum bisa dicek. Coba teruskan teks, foto, pesan suara, atau video.", reply_to=mid
+                sender, "Maaf, jenis pesan ini belum bisa aku cek. Coba terusin teks, foto, voice note, atau video ya.", reply_to=mid
             )
             return
 
@@ -241,11 +283,13 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         if status == "sent":
             repo.mark_alerted(case_id)
         alerted = status == "sent"
-        line = guardian_line(status, "*daftar wali 08xxxxxxxxxx*", names)
-        whatsapp_sender.send_text(sender, format_reply(result.verdict, line, tools_footer(result)), reply_to=mid)
+        line = guardian_line(status, "*daftar wali 08xx anak Hans*", names, profile)
+        whatsapp_sender.send_text(sender, format_reply(result.verdict, line, tools_footer(result), profile), reply_to=mid)
         if first_time:  # answer first, introduce ourselves after
             whatsapp_sender.send_text(sender, FIRST_TIME_NOTE)
             repo.set_consent(user.id)
+            if not profile.get("panggilan"):
+                repo.set_awaiting(user.id, "panggilan")
 
         log.info("case=%s risk=%s (muse=%s overrides=%s) tools=%s image=%s latency=%sms alerted=%s",
                  case_id, result.verdict.risk, result.model_risk, [o["rule"] for o in result.overrides],
@@ -254,7 +298,7 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         log.exception("processing message %s failed", mid)
         try:
             whatsapp_sender.send_text(
-                sender, "Maaf, ada gangguan saat mengecek. Sementara itu, jangan transfer atau kirim OTP dulu ya.", reply_to=mid
+                sender, "Maaf, aku lagi ada gangguan pas ngecek. Sementara itu jangan transfer atau kirim OTP dulu ya.", reply_to=mid
             )
         except Exception:
             pass

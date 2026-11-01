@@ -13,7 +13,7 @@ from collections import OrderedDict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
-from app.agent import followup
+from app.agent import followup, persona
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, telegram_bot
@@ -28,32 +28,36 @@ _seen: OrderedDict[int, None] = OrderedDict()
 _SEEN_MAX = 2000
 
 CONSENT = (
-    "_Pesan yang diteruskan disimpan sebagai teks untuk pengecekan; foto dan suara tidak disimpan. "
-    "Dengan melanjutkan, Ibu/Bapak setuju dengan ini._"
+    "_Pesan yang diteruskan aku simpan sebagai teks buat pengecekan; foto dan suara nggak disimpan. "
+    "Kalau lanjut pakai, berarti setuju ya._"
 )
 
 WELCOME = (
-    "Halo, saya *Cek Dulu* 👋\n\n"
-    "Kalau dapat pesan, foto, atau pesan suara yang mencurigakan, cukup *teruskan (forward)* ke sini. "
-    "Saya akan bilang apakah itu penipuan dan apa yang sebaiknya dilakukan.\n\n"
-    "Supaya anak/keluarga dikabari kalau ada bahaya, ketik /daftar_wali\n\n"
-    + CONSENT
+    "Halo! Aku *Cek Dulu* 👋\n\n"
+    "Kalau dapat pesan, foto, atau voice note yang aneh, *terusin (forward)* aja ke sini. "
+    "Nanti aku bilang itu penipuan atau bukan, dan harus ngapain.\n\n"
+    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
+)
+
+WELCOME_BACK = (
+    "Halo{v}! 👋 Terusin aja pesan, foto, atau voice note yang aneh ke sini, nanti aku cek.\n"
+    "Ketik /bantuan buat lihat perintah lainnya."
 )
 
 # Sent after the first verdict, when someone's very first message was something to check.
 FIRST_TIME_NOTE = (
-    "Saya *Cek Dulu* 👋 Kapan saja dapat pesan, foto, atau pesan suara yang mencurigakan, "
-    "teruskan saja ke sini.\n"
-    "Supaya anak/keluarga ikut dikabari kalau ada bahaya, ketik /daftar_wali\n\n"
-    + CONSENT
+    "Aku *Cek Dulu* 👋 Kapan aja dapat pesan, foto, atau voice note yang aneh, terusin aja ke sini ya.\n\n"
+    + persona.ASK_PANGGILAN + "\n\n" + CONSENT
 )
 
 HELP = (
     "*Cara pakai Cek Dulu*\n"
-    "• Teruskan pesan/foto/suara yang mencurigakan ke sini.\n"
-    "• /daftar_wali : dapatkan link untuk anak/keluarga jadi wali\n"
+    "• Terusin pesan/foto/suara yang aneh ke sini.\n"
+    "• /panggil nama : ganti panggilanmu (misal /panggil Mama)\n"
+    "• /daftar_wali anak : bikin link buat anak/cucu/keluarga jadi wali\n"
     "• /kata_aman petunjuk : simpan *petunjuk* kata aman keluarga (jangan tulis kata aman-nya)\n"
-    "• /status : lihat wali yang terdaftar\n"
+    "• /status : lihat siapa aja yang ikut jagain\n"
+    "• /gaya santai atau /gaya sopan : atur gaya ngobrolku\n"
     "• /hapus_wali : hapus semua wali"
 )
 
@@ -65,26 +69,42 @@ _PLAIN = {
     re.compile(r"^\s*status\s*$", re.I): "status",
     re.compile(r"^\s*(bantuan|help|menu|halo|hai|hi|hello|mulai)\s*[!.?]*\s*$", re.I): "bantuan",
 }
+_PLAIN_PANGGIL = re.compile(r"^\s*panggil\s+(aku|saya)\s+(.{1,40})$", re.I)
 _PLAIN_SAFEWORD = re.compile(r"^\s*kata\s+aman\s+(.{2,200})$", re.I | re.S)
 
 
 # --------------------------------------------------------------------------- invite tokens
 
-def _invite_sig(parent_id: int) -> str:
+def _invite_sig(parent_id: int, rel: str = "") -> str:
     key = hashlib.sha256(b"cekdulu-invite:" + settings.telegram_bot_token.encode()).digest()
-    return hmac.new(key, str(parent_id).encode(), hashlib.sha256).hexdigest()[:16]
+    msg = f"{parent_id}:{rel}" if rel else str(parent_id)
+    return hmac.new(key, msg.encode(), hashlib.sha256).hexdigest()[:16]
 
 
-def make_invite(parent_id: int) -> str:
-    return f"wali_{parent_id}_{_invite_sig(parent_id)}"  # <= 64 chars, [A-Za-z0-9_]
+def make_invite(parent_id: int, relation: str | None = None) -> str:
+    """wali_<id>_<sig> or wali_<id>_<rel>_<sig> (rel = 1-letter relation code, signed too)."""
+    rel = persona.RELATION_CODE.get(relation or "", "")
+    if rel:
+        return f"wali_{parent_id}_{rel}_{_invite_sig(parent_id, rel)}"  # <= 64 chars, [A-Za-z0-9_]
+    return f"wali_{parent_id}_{_invite_sig(parent_id)}"
+
+
+def parse_invite_full(payload: str) -> tuple[int, str] | None:
+    """Returns (parent_id, relation) or None if the token is invalid/tampered."""
+    m = re.fullmatch(r"wali_(\d{1,12})_(?:([a-z])_)?([0-9a-f]{16})", payload or "")
+    if not m:
+        return None
+    pid, rel = int(m.group(1)), m.group(2) or ""
+    if rel and rel not in persona.RELATIONS:
+        return None
+    if not hmac.compare_digest(_invite_sig(pid, rel), m.group(3)):
+        return None
+    return pid, persona.RELATIONS.get(rel, "keluarga")
 
 
 def parse_invite(payload: str) -> int | None:
-    m = re.fullmatch(r"wali_(\d{1,12})_([0-9a-f]{16})", payload or "")
-    if not m:
-        return None
-    pid = int(m.group(1))
-    return pid if hmac.compare_digest(_invite_sig(pid), m.group(2)) else None
+    got = parse_invite_full(payload)
+    return got[0] if got else None
 
 
 # --------------------------------------------------------------------------- webhook
@@ -120,6 +140,8 @@ def _label(user_obj: dict) -> str:
 def _parse_command(text: str) -> tuple[str, str] | None:
     if m := _CMD.match(text):
         return m.group(1).lower(), (m.group(2) or "").strip()
+    if m := _PLAIN_PANGGIL.match(text):
+        return "panggil", m.group(2).strip()
     if m := _PLAIN_SAFEWORD.match(text):
         return "kata_aman", m.group(1).strip()
     for rx, cmd in _PLAIN.items():
@@ -128,49 +150,82 @@ def _parse_command(text: str) -> tuple[str, str] | None:
     return None
 
 
-def _handle_command(cmd: str, arg: str, user, chat_id: int, label: str) -> str | None:
-    if cmd in ("start",) and arg:
-        parent_id = parse_invite(arg)
-        if parent_id is None:
-            return "Link wali tidak valid. Minta link baru dari keluarga Anda."
+def _handle_command(cmd: str, arg: str, user, chat_id: int, label: str, first_name: str = "") -> str | None:
+    profile = repo.get_profile(user.id)
+    p = persona.panggilan(profile)
+    v = f", {p}" if p else ""
+    if cmd == "start" and arg:
+        got = parse_invite_full(arg)
+        if got is None:
+            return "Link walinya nggak valid. Minta link baru dari keluargamu ya."
+        parent_id, relation = got
         if parent_id == user.id:
-            return ("Ini link wali milik Ibu/Bapak sendiri 🙂\n"
-                    "Kirim link itu ke anak/keluarga, lalu minta mereka membukanya.")
+            return f"Ini link wali punyamu sendiri 🙂 Kirim link itu ke anak/keluarga{v}, terus minta mereka buka."
         parent = repo.get_user(parent_id)
         if parent is None:
-            return "Link wali tidak valid. Minta link baru dari keluarga Anda."
+            return "Link walinya nggak valid. Minta link baru dari keluargamu ya."
         repo.link_guardian_user(parent_id, user.id)
-        parent_name = parent.name or "keluarga Anda"
+        name = first_name or label.split(" (@")[0]
+        repo.add_profile_contact(parent_id, name, relation, user.id)
+        parent_profile = repo.get_profile(parent_id)
+        pp = persona.panggilan(parent_profile)
         if parent.tg_chat_id:
             try:
-                telegram_bot.send_text(parent.tg_chat_id, f"✅ *{label}* sekarang jadi wali Ibu/Bapak. "
-                                       "Kalau ada pesan BAHAYA, dia akan langsung dikabari.")
+                telegram_bot.send_text(parent.tg_chat_id, f"✅ *{name}* ({relation}) sekarang ikut jagain"
+                                       f"{' ' + pp if pp else ''}. Kalau ada pesan bahaya, {name} langsung aku kabarin.")
             except Exception:
                 log.info("could not notify parent of new guardian")
-        return (f"✅ Anda sekarang *wali* untuk {parent_name} di Cek Dulu.\n"
-                "Anda akan dikabari di sini kalau beliau menerima pesan penipuan yang berbahaya.")
+        parent_name = pp or (parent.name or "keluargamu").split(" (@")[0]
+        return (f"✅ Sekarang kamu jadi *wali* buat {parent_name} di Cek Dulu.\n"
+                "Kalau beliau dapat pesan penipuan yang bahaya, kamu langsung aku kabarin di sini.")
     if cmd == "start":
+        if p:
+            return WELCOME_BACK.replace("{v}", v)
+        repo.set_awaiting(user.id, "panggilan")
         return WELCOME
-    if cmd == "daftar_wali":
+    if cmd == "panggil":
+        name = persona.parse_panggilan(arg) if arg else None
+        if not name:
+            repo.set_awaiting(user.id, "panggilan")
+            return persona.ASK_PANGGILAN
+        repo.set_panggilan(user.id, name)
+        return persona.panggilan_saved(name, "/daftar_wali")
+    if cmd == "gaya":
+        if arg.lower() not in ("santai", "sopan"):
+            return "Pilih salah satu: /gaya santai atau /gaya sopan"
+        repo.set_style(user.id, arg.lower())
+        return ("Oke, aku ngobrolnya santai aja ya 😊" if arg.lower() == "santai"
+                else f"Baik{v}, mulai sekarang saya pakai bahasa yang lebih sopan.")
+    if cmd in ("daftar_wali", "link", "wali"):
+        relation = arg.split()[0].lower() if arg else ""
+        relation = relation if relation in persona.RELATION_CODE else ""
         username = telegram_bot.bot_username()
-        link = f"https://t.me/{username}?start={make_invite(user.id)}"
-        return ("Kirim link ini ke anak/keluarga yang mau jadi wali, lalu minta mereka membukanya "
-                f"dan tekan *Start*:\n\n{link}\n\n"
-                "_Di Telegram, wali harus membuka link ini sendiri; nomor HP saja tidak cukup._")
+        link = f"https://t.me/{username}?start={make_invite(user.id, relation or None)}"
+        who = relation or "anak/keluarga"
+        return (f"Kirim link ini ke {who} yang mau ikut jagain{v}, terus minta dia buka dan tekan *Start*:\n\n"
+                f"{link}\n\n"
+                "_Tip: /daftar_wali cucu kalau yang didaftarin cucu. Di Telegram, walinya harus buka link "
+                "ini sendiri; nomor HP aja nggak cukup._")
     if cmd == "hapus_wali":
-        return "Semua wali sudah dihapus." if repo.unlink_guardians(user.id) else "Belum ada wali yang terdaftar."
+        n = repo.unlink_guardians(user.id)
+        repo.clear_profile_contacts(user.id)
+        return "Semua wali udah dihapus." if n else "Belum ada wali yang terdaftar."
     if cmd == "kata_aman":
         if not arg:
             return "Tulis petunjuknya, contoh: /kata_aman nama kucing pertama kita"
         if not repo.set_safe_word_hint(user.id, arg):
-            return "Daftarkan wali dulu dengan /daftar_wali, lalu simpan petunjuk kata aman."
-        return ("✅ Petunjuk kata aman disimpan. Kalau ada yang mengaku keluarga dan minta uang, "
-                "minta dia sebutkan kata aman itu.")
+            return "Daftarin wali dulu pakai /daftar_wali, baru simpan petunjuk kata aman."
+        return ("✅ Petunjuk kata aman udah disimpan. Kalau ada yang ngaku keluarga terus minta uang, "
+                "suruh dia sebutin kata amannya.")
     if cmd == "status":
+        fam = profile["contacts"]
         gs = repo.active_guardians(user.id)
         if not gs:
-            return "Belum ada wali. Ketik /daftar_wali"
-        return "Wali terdaftar:\n" + "\n".join(f"• {notify.describe(g)}" for g in gs)
+            return "Belum ada yang ikut jagain. Ketik /daftar_wali"
+        lines = [f"• {c['name']} ({c.get('relation') or 'keluarga'})" for c in fam] or \
+                [f"• {notify.describe(g)}" for g in gs]
+        head = f"Panggilanmu: *{p}*\n" if p else ""
+        return head + "Yang ikut jagain:\n" + "\n".join(lines)
     if cmd in ("bantuan", "help"):
         return HELP
     return None  # unknown slash command -> analyze as text
@@ -223,7 +278,7 @@ def _build_input(msg: dict, user_id: int) -> tuple[Input | None, str]:
     return None, "unsupported"
 
 
-def _handle_followup(text: str, user, chat_id: int, mid: int, label: str) -> bool:
+def _handle_followup(text: str, user, chat_id: int, mid: int, label: str, profile: dict | None = None) -> bool:
     """Returns True if the message was answered as a follow-up."""
     if followup.looks_like_new_content(text):
         return False
@@ -231,7 +286,7 @@ def _handle_followup(text: str, user, chat_id: int, mid: int, label: str) -> boo
     if not last:
         return False
     with telegram_bot.typing(chat_id):
-        ans = followup.answer(text, last)
+        ans = followup.answer(text, last, profile)
     if not ans or ans.intent != "followup":
         return False
     telegram_bot.send_text(chat_id, ans.reply, reply_to=mid)
@@ -254,26 +309,42 @@ def process_update(update: dict) -> None:
         user, is_new = repo.upsert_tg_user(chat_id, label)
         text = msg.get("text") or ""
         parsed = _parse_command(text) if text else None
+        first_name = sender.get("first_name") or ""
 
         first_time = is_new or not user.consent_at
 
         if parsed:
-            reply = _handle_command(*parsed, user, chat_id, label)
+            reply = _handle_command(*parsed, user, chat_id, label, first_name)
             if reply:
-                if first_time and reply is not WELCOME:
+                if first_time and reply is not WELCOME and "start" != parsed[0]:
                     reply += "\n\n" + CONSENT
                 telegram_bot.send_text(chat_id, reply, reply_to=mid)
                 if first_time:
                     repo.set_consent(user.id)
                 return
 
+        profile = repo.get_profile(user.id)
+        forwarded = bool(msg.get("forward_origin"))
+
+        # Onboarding answer: "Mau aku panggil apa?" -> "Mama"
+        if text and not forwarded and profile.get("awaiting") == "panggilan" \
+                and not repo.last_case_for(user.id, followup.WINDOW):
+            name = persona.parse_panggilan(text)
+            if name:
+                repo.set_panggilan(user.id, name)
+                repo.set_consent(user.id)
+                telegram_bot.send_text(chat_id, persona.panggilan_saved(name, "/daftar_wali"), reply_to=mid)
+                return
+
         # Follow-up to a recent verdict ("terus gimana?", "aku sudah transfer")? Answer in context.
-        if text and not msg.get("forward_origin") and _handle_followup(text, user, chat_id, mid, label):
+        if text and not forwarded and _handle_followup(text, user, chat_id, mid, label, profile):
             return
 
         # Answer first, introduce ourselves after: a parent who forwards a scam wants the verdict.
         with telegram_bot.typing(chat_id):
             inp, input_type = _build_input(msg, user.id)
+            if inp is not None:
+                inp.profile = profile
             if inp is None:
                 telegram_bot.send_text(chat_id, "Maaf, jenis pesan ini belum bisa dicek. "
                                        "Coba teruskan teks, foto, pesan suara, atau video.", reply_to=mid)
@@ -295,11 +366,14 @@ def process_update(update: dict) -> None:
         if status == "sent":
             repo.mark_alerted(case_id)
         alerted = status == "sent"
-        reply = format_reply(result.verdict, guardian_line(status, "/daftar_wali", names), tools_footer(result))
+        line = guardian_line(status, "/daftar_wali", names, profile)
+        reply = format_reply(result.verdict, line, tools_footer(result), profile)
         telegram_bot.edit_or_send(chat_id, working_id, reply, reply_to=mid)
         if first_time:
             telegram_bot.send_text(chat_id, FIRST_TIME_NOTE)
             repo.set_consent(user.id)
+            if not profile.get("panggilan"):
+                repo.set_awaiting(user.id, "panggilan")
 
         log.info("tg case=%s risk=%s (muse=%s overrides=%s) tools=%s image=%s latency=%sms alerted=%s",
                  case_id, result.verdict.risk, result.model_risk, [o["rule"] for o in result.overrides],

@@ -2,6 +2,7 @@
 import html
 import re
 
+from app.agent import persona
 from app.agent.contacts import format_contacts
 from app.agent.schema import AnalysisResult, Verdict
 
@@ -27,34 +28,24 @@ CATEGORY_LABEL = {
 }
 
 
-def guardian_line(status: str | None, register_hint: str = "", names: list[str] | None = None) -> str:
-    """Written from what actually happened to the guardian alerts. Never claims an alert that wasn't sent.
-
-    status: "sent" | "already" (cooldown: alerted a few minutes ago) | "failed" | "none" | "" (not BAHAYA)
-    """
-    who = ", ".join(names or []) or "wali Ibu/Bapak"
-    if status == "sent":
-        return f"✅ Sudah kami kabari: {who}"
-    if status == "already":
-        return f"✅ Sudah kami kabari beberapa menit lalu: {who}"
-    if status == "failed":
-        return f"⚠️ Pesan ke {who} belum terkirim. Tolong telepon mereka langsung ya."
-    if status == "none" and register_hint:
-        return f"Belum ada wali terdaftar, ketik {register_hint}"
-    return ""
+def guardian_line(status: str | None, register_hint: str = "", names: list[str] | None = None,
+                  profile: dict | None = None) -> str:
+    """From what actually happened to the alerts; "Hans udah aku kabarin" only if it was sent.
+    status: "sent" | "already" (cooldown) | "failed" | "none" | "" (not BAHAYA)."""
+    return persona.guardian_line(status, names, profile, register_hint)
 
 
-def format_reply(v: Verdict, guardian: str = "", footer: str = "") -> str:
-    steps = "\n".join(f"{i}. {s}" for i, s in enumerate(v.next_steps, 1))
-    lines = [RISK_HEADER[v.risk], "", v.reply_text.strip(), "", f"Alasannya: {v.reason.strip()}", "",
-             "*Yang perlu dilakukan:*", steps]
+def format_reply(v: Verdict, guardian: str = "", footer: str = "", profile: dict | None = None) -> str:
+    """Emoji verdict line, one line of why, 2-3 numbered actions, official contacts, guardian line."""
+    say = lambda t: persona.address((t or "").strip(), profile)  # noqa: E731
+    lines = [f"{RISK_HEADER[v.risk]} · {say(v.reply_text)}", say(v.reason), ""]
+    lines += [f"{i}. {say(s)}" for i, s in enumerate(v.next_steps[:3], 1)]
     if v.contacts:
-        lines += ["", format_contacts(v.contacts)]
+        lines += [format_contacts(v.contacts)]
     if guardian:
         lines += ["", guardian]
-    lines += ["", "_Cek dulu, baru transfer._"]
     if footer:
-        lines += [footer]
+        lines += ["", footer]
     return "\n".join(lines)
 
 

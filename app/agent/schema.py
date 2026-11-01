@@ -56,14 +56,14 @@ FALLBACK_VERDICT = Verdict(
     risk="WASPADA",
     category="lainnya",
     confidence=0.3,
-    reason="Pesan ini belum bisa dicek dengan pasti.",
+    reason="Pesan ini belum bisa aku cek dengan pasti.",
     next_steps=[
-        "Jangan transfer uang atau kirim kode OTP dulu.",
-        "Telepon balik orangnya lewat nomor lama yang Ibu/Bapak simpan.",
-        "Tanyakan ke anak atau keluarga sebelum bertindak.",
+        "Jangan transfer atau kirim kode OTP dulu.",
+        "Telepon balik orangnya lewat nomor lama yang tersimpan.",
+        "Tanya anak atau keluarga dulu sebelum bertindak.",
     ],
     alert_guardian=False,
-    reply_text="Maaf, sistem sedang kesulitan mengecek pesan ini. Sebaiknya hati-hati dulu.",
+    reply_text="Maaf, aku lagi susah ngecek pesan ini. Hati-hati dulu ya.",
 )
 
 
@@ -80,6 +80,7 @@ class Input:
     mime: str | None = None
     user_id: int | None = None  # DB user id (for safe-word lookup)
     channel: str = "web"
+    profile: dict | None = None  # persona: panggilan, bahasa_style, family contacts (repo.get_profile)
 
 
 @dataclass

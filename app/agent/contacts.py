@@ -20,26 +20,31 @@ POLICE = {
     "name": "Polisi",
     "contact": "110",
     "when": "Ada yang mengaku polisi/aparat atau keluarga dan minta uang: tutup telepon, lalu telepon 110.",
+    "note": "",
 }
 IASC = {
     "name": "IASC (Indonesia Anti-Scam Centre, OJK)",
     "contact": "https://iasc.ojk.go.id",
     "when": "Sudah terlanjur transfer: lapor SECEPATNYA, sebaiknya kurang dari 12 jam, supaya dana bisa diblokir.",
+    "note": "lapor secepatnya, sebelum 12 jam, biar dananya bisa diblokir",
 }
 OJK = {
     "name": "Kontak OJK",
     "contact": "157 / WhatsApp 081-157-157-157",
     "when": "Tanyakan apakah investasi/pinjaman ini terdaftar dan berizin di OJK.",
+    "note": "cek izinnya di sini",
 }
 ADUAN_NOMOR = {
     "name": "Lapor nomor penipu",
     "contact": "https://aduannomor.id",
     "when": "Laporkan nomor HP yang dipakai penipu.",
+    "note": "",
 }
 HALO_BCA = {
     "name": "Halo BCA",
     "contact": "1500888",
     "when": "Nasabah BCA: telepon untuk blokir rekening/kartu. Bank lain: telepon nomor di balik kartu ATM Anda.",
+    "note": "bank lain: nomor di balik kartu ATM",
 }
 
 # scam type (or situation) -> contacts, in the order they should be shown
@@ -80,9 +85,9 @@ def contacts_for(scam_type: str, money_sent: bool = False, scam_phone: bool = Fa
 
 
 def format_contacts(contacts: list[dict]) -> str:
-    if not contacts:
-        return ""
-    return "*Kontak resmi:*\n" + "\n".join(f"• {c['name']}: *{c['contact']}*\n  {c['when']}" for c in contacts)
+    """One short line per contact, e.g. "📞 Polisi: *110*"."""
+    return "\n".join(f"📞 {c['name']}: *{c['contact']}*" + (f" ({c['note']})" if c.get("note") else "")
+                     for c in contacts)
 
 
 # --------------------------------------------------------------------------- number allowlist

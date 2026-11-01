@@ -22,7 +22,8 @@ from openai import APIError, BadRequestError
 from pydantic import ValidationError
 
 from app.agent import contacts
-from app.agent.prompts import JSON_REPAIR_PROMPT, SYSTEM_PROMPT, wrap_forwarded
+from app.agent import persona
+from app.agent.prompts import JSON_REPAIR_PROMPT, build_system_prompt, wrap_forwarded
 from app.agent.providers import Provider, fallback_name, get_provider
 from app.agent.schema import FALLBACK_VERDICT, VERDICT_JSON_SCHEMA, AnalysisResult, Input, Verdict
 from app.config import settings
@@ -207,7 +208,8 @@ def _chat_json(provider: Provider, messages: list):
 
 
 def _run_model(provider: Provider, inp: Input, user_msg: str | list, result: AnalysisResult) -> Verdict | None:
-    messages: list = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_msg}]
+    messages: list = [{"role": "system", "content": build_system_prompt(inp.profile)},
+                      {"role": "user", "content": user_msg}]
     called: set[str] = set()
 
     for _step in range(settings.max_tool_steps):
@@ -288,7 +290,7 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
     # If a rule raised the risk, the model's friendly text was written for a lower risk: replace it.
     if v.risk != verdict.risk and _RANK[v.risk] > _RANK[verdict.risk]:
         result.overrides.append({"rule": "teks_disesuaikan_risiko", "field": "reply_text"})
-        v.reply_text = _DEFAULT_REPLY[v.risk]
+        v.reply_text = persona.examples(inp.profile)[v.risk]
 
     for field in ("reply_text", "reason"):
         cleaned = _UNSAFE_PHRASES.sub("kemungkinan aman", getattr(v, field))
@@ -313,6 +315,11 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
     if steps != v.next_steps:
         result.overrides.append({"rule": "nomor_tidak_resmi_dihapus", "field": "next_steps"})
         v.next_steps = steps
+    # Address the user only by their chosen panggilan; never "Ibu/Bapak".
+    for field in ("reply_text", "reason"):
+        setattr(v, field, persona.address(getattr(v, field), inp.profile))
+    v.next_steps = [persona.address(s, inp.profile) for s in v.next_steps]
+
     v.scam_type = contacts.resolve_type(v.scam_type, v.category)
     if v.risk == "AMAN":
         v.contacts = []
@@ -326,11 +333,7 @@ _INSTALLED = re.compile(r"(?i)terlanjur|sudah\s+(di|ter)?(pasang|install|instal)
 _APK_INSTALLED_STEP = ("Kalau sudah terlanjur dipasang, matikan internet (data dan WiFi), "
                        "lalu telepon call center resmi bank.")
 _RANK = {"AMAN": 0, "WASPADA": 1, "BAHAYA": 2}
-_DEFAULT_REPLY = {
-    "AMAN": "Ibu/Bapak, pesan ini kelihatannya aman, tapi tetap hati-hati ya.",
-    "WASPADA": "Ibu/Bapak, pesan ini perlu dicek dulu sebelum bertindak.",
-    "BAHAYA": "Ibu/Bapak, ini penipuan, jangan diikuti ya.",
-}
+_DEFAULT_REPLY = persona.examples(None)  # used when a rule overrides the model's wording
 # "tidak usah khawatir", "jangan khawatir", "nggak perlu cemas", ... : wrong message for a warning
 _SOFTENER = re.compile(r"(?i)\b(tidak|tak|nggak|gak|ga|enggak|jangan|ndak)\s+(usah\s+|perlu\s+)?(khawatir|cemas)\b")
 

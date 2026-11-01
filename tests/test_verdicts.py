@@ -360,7 +360,7 @@ def test_webhook_end_to_end_with_guardian(client, monkeypatch):
         return client.post("/webhook", content=body, headers={"X-Hub-Signature-256": _sig(body)})
 
     assert post(_wa_payload("m1", "daftar wali 0812 2222 3333")).status_code == 200
-    assert any("Wali terdaftar: +6281222223333" in b for _, b in sent)
+    assert any("+6281****333 (keluarga) sekarang ikut jagain" in b for _, b in sent)
 
     assert post(_wa_payload("m2", "CS BCA: kirim OTP sekarang")).status_code == 200
     assert any("*BAHAYA*" in b for _, b in sent)
