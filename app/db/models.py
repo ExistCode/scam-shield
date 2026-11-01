@@ -74,3 +74,17 @@ class VerdictRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     case: Mapped[Case] = relationship(back_populates="verdict")
+
+
+class UserProfile(Base):
+    """How Cek Dulu talks to someone: what to call them, how casual, and who their family is."""
+
+    __tablename__ = "user_profiles"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    panggilan: Mapped[str | None] = mapped_column(String(40), nullable=True)  # "Mama", "Bu Sri", "Om Budi"
+    bahasa_style: Mapped[str] = mapped_column(String(8), default="santai")  # santai | sopan
+    # [{"name": "Hans", "relation": "anak", "user_id": 12}], filled from linked guardians
+    contacts: Mapped[list] = mapped_column(JSON, default=list)
+    awaiting: Mapped[str | None] = mapped_column(String(16), nullable=True)  # onboarding question pending
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

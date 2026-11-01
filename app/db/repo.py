@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.agent.orchestrator import details
 from app.agent.schema import AnalysisResult
-from app.db.models import Case, GuardianLink, User, VerdictRow
+from app.db.models import Case, GuardianLink, User, UserProfile, VerdictRow
 from app.db.session import get_session
 
 
@@ -173,3 +173,60 @@ def set_safe_word_hint(parent_id: int, hint: str) -> int:
         for l in links:
             l.safe_word_hint = hint[:200]
         return len(links)
+
+
+# --------------------------------------------------------------------------- profile (persona)
+
+def _profile_row(s, user_id: int) -> UserProfile:
+    row = s.get(UserProfile, user_id)
+    if row is None:
+        row = UserProfile(user_id=user_id, bahasa_style="santai", contacts=[])
+        s.add(row)
+        s.flush()
+    return row
+
+
+def get_profile(user_id: int | None) -> dict:
+    """{"panggilan", "bahasa_style", "contacts": [{"name", "relation"}], "awaiting"} (defaults if none)."""
+    if user_id is None:
+        return {"panggilan": None, "bahasa_style": "santai", "contacts": [], "awaiting": None}
+    with get_session() as s:
+        row = s.get(UserProfile, user_id)
+        if row is None:
+            return {"panggilan": None, "bahasa_style": "santai", "contacts": [], "awaiting": None}
+        return {"panggilan": row.panggilan, "bahasa_style": row.bahasa_style or "santai",
+                "contacts": list(row.contacts or []), "awaiting": row.awaiting}
+
+
+def set_panggilan(user_id: int, panggilan: str) -> None:
+    with get_session() as s:
+        row = _profile_row(s, user_id)
+        row.panggilan = panggilan[:40]
+        row.awaiting = None
+
+
+def set_style(user_id: int, style: str) -> None:
+    with get_session() as s:
+        _profile_row(s, user_id).bahasa_style = "sopan" if style == "sopan" else "santai"
+
+
+def set_awaiting(user_id: int, what: str | None) -> None:
+    with get_session() as s:
+        _profile_row(s, user_id).awaiting = what
+
+
+def add_profile_contact(parent_id: int, name: str, relation: str, guardian_user_id: int | None = None) -> None:
+    """Called when a guardian links: they become a named family contact in the parent's profile."""
+    with get_session() as s:
+        row = _profile_row(s, parent_id)
+        contacts = [c for c in (row.contacts or [])
+                    if not (guardian_user_id and c.get("user_id") == guardian_user_id)]
+        contacts.append({"name": name[:40], "relation": relation[:20], "user_id": guardian_user_id})
+        row.contacts = contacts  # reassign so the JSON change is persisted
+
+
+def clear_profile_contacts(parent_id: int) -> None:
+    with get_session() as s:
+        row = s.get(UserProfile, parent_id)
+        if row:
+            row.contacts = []
