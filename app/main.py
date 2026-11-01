@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 
 from app.api.analyze import router as analyze_router
 from app.channels.telegram_webhook import router as telegram_router
+from app.channels.web_demo import router as demo_router
 from app.channels.whatsapp_webhook import router as webhook_router
 from app.config import settings
 from app.db.session import init_db
@@ -37,11 +38,18 @@ app = FastAPI(title="Cek Dulu", version="1.0", lifespan=lifespan)
 app.include_router(webhook_router)
 app.include_router(telegram_router)
 app.include_router(analyze_router)
+app.include_router(demo_router)
 
 
 @app.get("/", include_in_schema=False)
 def index():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/wa", include_in_schema=False)
+def wa_demo():
+    """WhatsApp-style simulator (two phones) on top of the same backend, for screen recordings."""
+    return FileResponse(STATIC / "wa.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/health")

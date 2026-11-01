@@ -12,6 +12,12 @@ def alert_guardian(guardian: User, parent_label: str, verdict: Verdict) -> bool:
     from app.channels import telegram_bot, whatsapp_sender  # local import: avoid cycles
 
     try:
+        if guardian.web_id:  # /wa demo page: the guardian's simulated phone
+            from app.channels import web_demo
+            from app.channels.formatting import guardian_alert_text
+
+            web_demo.push(guardian.web_id, guardian_alert_text(parent_label, verdict))
+            return True
         if guardian.tg_chat_id:
             telegram_bot.send_guardian_alert(guardian.tg_chat_id, parent_label, verdict)
             return True

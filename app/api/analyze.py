@@ -26,7 +26,7 @@ _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
 
-def _check_access(request: Request, token: str | None) -> None:
+def _check_access(request: Request, token: str | None, per_min: int | None = None) -> None:
     if settings.analyze_token:
         if not token or not hmac.compare_digest(token, settings.analyze_token):
             raise HTTPException(401, "missing or wrong X-Analyze-Token")
@@ -38,7 +38,7 @@ def _check_access(request: Request, token: str | None) -> None:
         q = _hits[ip]
         while q and now - q[0] > 60:
             q.popleft()
-        if len(q) >= settings.analyze_rate_per_min:
+        if len(q) >= (per_min or settings.analyze_rate_per_min):
             raise HTTPException(429, "too many requests, try again in a minute")
         q.append(now)
 

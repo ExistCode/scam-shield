@@ -52,6 +52,20 @@ def upsert_tg_user(chat_id: int | str, name: str | None = None, role: str = "par
         return user, True
 
 
+def upsert_web_user(web_id: str, name: str | None = None, role: str = "parent") -> tuple[User, bool]:
+    """Simulated chat user of the /wa demo page. Returns (user, is_new)."""
+    with get_session() as s:
+        user = s.scalar(select(User).where(User.web_id == web_id))
+        if user:
+            if name and not user.name:
+                user.name = name
+            return user, False
+        user = User(web_id=web_id, name=name, role=role)
+        s.add(user)
+        s.flush()
+        return user, True
+
+
 def get_user(user_id: int) -> User | None:
     with get_session() as s:
         return s.get(User, user_id)

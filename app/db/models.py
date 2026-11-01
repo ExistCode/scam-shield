@@ -18,6 +18,7 @@ class User(Base):
     # One identity per channel; a row has wa_number (WhatsApp) or tg_chat_id (Telegram).
     wa_number: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)  # plain for demo
     tg_chat_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True, nullable=True)
+    web_id: Mapped[str | None] = mapped_column(String(80), unique=True, index=True, nullable=True)  # /wa demo
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     role: Mapped[str] = mapped_column(String(16), default="parent")  # parent / guardian
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
