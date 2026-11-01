@@ -11,11 +11,11 @@ from collections import OrderedDict
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
-from app.agent import followup, guardian_policy
+from app.agent import followup
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, whatsapp_media, whatsapp_sender
-from app.channels.formatting import format_reply
+from app.channels.formatting import format_reply, guardian_line
 from app.config import settings
 from app.db import repo
 
@@ -229,17 +229,17 @@ def process_message(msg: dict, profile_name: str | None) -> None:
         repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
         inp.media_bytes = None  # drop media as soon as analysis is done
 
-        whatsapp_sender.send_text(sender, format_reply(result.verdict), reply_to=mid)
+        # Alert first, so the reply can say truthfully whether the guardian was told.
+        status = notify.alert_guardians(user.id, _parent_label(user.name, sender), result.verdict)
+        if status == "sent":
+            repo.mark_alerted(case_id)
+        alerted = status == "sent"
+        hint = "" if first_time else "*daftar wali 08xxxxxxxxxx*"
+        whatsapp_sender.send_text(sender, format_reply(result.verdict, guardian_line(status, hint)), reply_to=mid)
         if first_time:  # answer first, introduce ourselves after
             whatsapp_sender.send_text(sender, FIRST_TIME_NOTE)
             repo.set_consent(user.id)
 
-        guardians = guardian_policy.guardians_to_alert(user.id, result.verdict)
-        alerted = False
-        for g in guardians:
-            alerted = notify.alert_guardian(g, _parent_label(user.name, sender), result.verdict) or alerted
-        if alerted:
-            repo.mark_alerted(case_id)
         log.info("case=%s risk=%s (muse=%s overrides=%s) tools=%s image=%s latency=%sms alerted=%s",
                  case_id, result.verdict.risk, result.model_risk, [o["rule"] for o in result.overrides],
                  result.tools_used, result.image_mode, result.latency_ms, alerted)

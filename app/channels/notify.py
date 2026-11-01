@@ -23,6 +23,25 @@ def alert_guardian(guardian: User, parent_label: str, verdict: Verdict) -> bool:
     return False
 
 
+def alert_guardians(parent_user_id: int, parent_label: str, verdict: Verdict) -> str:
+    """Alert the parent's guardians for a verdict. Returns what happened, for an honest reply line:
+    "sent" | "already" (cooldown) | "failed" | "none" (no guardian) | "" (not BAHAYA)."""
+    from app.agent import guardian_policy
+    from app.db import repo
+
+    if verdict.risk != "BAHAYA":
+        return ""
+    if not repo.active_guardians(parent_user_id):
+        return "none"
+    targets = guardian_policy.guardians_to_alert(parent_user_id, verdict)
+    if not targets:
+        return "already"
+    sent = False
+    for g in targets:
+        sent = alert_guardian(g, parent_label, verdict) or sent
+    return "sent" if sent else "failed"
+
+
 def describe(user: User) -> str:
     if user.wa_number:
         return f"+{user.wa_number}" + (f" ({user.name})" if user.name else "")

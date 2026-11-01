@@ -165,3 +165,39 @@ def test_build_input_video_and_video_note(monkeypatch):
     assert inp.type == "video"
     inp, _ = telegram_webhook._build_input({"document": {"file_id": "d", "mime_type": "video/quicktime"}}, 1)
     assert inp.type == "video"
+
+
+def test_reply_only_claims_guardian_alert_when_sent(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None: sent.append((str(chat_id), text)))
+    monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "CekDuluBot")
+    monkeypatch.setattr(telegram_webhook, "analyze", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
+    PARENT, CHILD = 5571001, 5571002
+    uid = iter(range(5000, 6000))
+
+    def post(chat_id, text, first="Sri"):
+        m = {"message_id": next(uid), "chat": {"id": chat_id, "type": "private"},
+             "from": {"id": chat_id, "first_name": first}, "text": text, "forward_origin": {"type": "hidden_user"}}
+        client.post("/telegram/webhook", json={"update_id": next(uid), "message": m},
+                    headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
+
+    def verdict_msgs():
+        return [t for c, t in sent if c == str(PARENT) and "*BAHAYA*" in t]
+
+    post(PARENT, "/start")
+    post(PARENT, "Paket tertahan, buka aplikasi ini")      # no guardian yet
+    assert "sudah kami kabari" not in verdict_msgs()[-1] and "/daftar_wali" in verdict_msgs()[-1]
+
+    post(PARENT, "/daftar_wali")
+    post(CHILD, "/start " + sent[-1][1].split("?start=")[1].split()[0], first="Hans")
+    post(PARENT, "Paket tertahan lagi, buka aplikasi ini")  # guardian alerted
+    assert "✅ Wali Ibu/Bapak sudah kami kabari." in verdict_msgs()[-1]
+    post(PARENT, "Paket tertahan ketiga kali")               # cooldown: say so, don't re-alert
+    assert "beberapa menit lalu" in verdict_msgs()[-1]
+
+    monkeypatch.setattr(telegram_bot, "send_guardian_alert", lambda *a: (_ for _ in ()).throw(RuntimeError("down")))
+    from app.agent import guardian_policy
+    monkeypatch.setattr(guardian_policy, "COOLDOWN", guardian_policy.timedelta(0))
+    post(PARENT, "Paket tertahan keempat")                   # delivery failed: say so
+    assert "belum terkirim" in verdict_msgs()[-1]

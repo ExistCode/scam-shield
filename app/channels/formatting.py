@@ -26,13 +26,31 @@ CATEGORY_LABEL = {
 }
 
 
-def format_reply(v: Verdict) -> str:
+def guardian_line(status: str | None, register_hint: str = "") -> str:
+    """What actually happened to the guardian alert. Never claim an alert that wasn't sent.
+
+    status: "sent" | "already" | "failed" | "none" | None (not BAHAYA / no user)
+    """
+    if status == "sent":
+        return "✅ Wali Ibu/Bapak sudah kami kabari."
+    if status == "already":
+        return "Wali Ibu/Bapak sudah kami kabari beberapa menit lalu soal pesan seperti ini."
+    if status == "failed":
+        return "⚠️ Pesan ke wali belum terkirim. Tolong telepon anak/keluarga langsung ya."
+    if status == "none" and register_hint:
+        return f"Belum ada wali yang terdaftar. Supaya keluarga ikut dikabari, ketik: {register_hint}"
+    return ""
+
+
+def format_reply(v: Verdict, guardian: str = "", footer: str = "") -> str:
     steps = "\n".join(f"{i}. {s}" for i, s in enumerate(v.next_steps, 1))
     lines = [RISK_HEADER[v.risk], "", v.reply_text.strip(), "", f"Alasannya: {v.reason.strip()}", "",
              "*Yang perlu dilakukan:*", steps]
-    if v.alert_guardian:
-        lines += ["", "Kami juga sudah kabari wali Ibu/Bapak (kalau terdaftar)."]
+    if guardian:
+        lines += ["", guardian]
     lines += ["", "_Cek dulu, baru transfer._"]
+    if footer:
+        lines += [footer]
     return "\n".join(lines)
 
 

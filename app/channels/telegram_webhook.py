@@ -13,11 +13,11 @@ from collections import OrderedDict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
-from app.agent import followup, guardian_policy
+from app.agent import followup
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input
 from app.channels import notify, telegram_bot
-from app.channels.formatting import format_reply
+from app.channels.formatting import format_reply, guardian_line
 from app.config import settings
 from app.db import repo
 
@@ -284,16 +284,17 @@ def process_update(update: dict) -> None:
             repo.save_verdict(case_id, result, input_text=result.extracted_text or inp.text)
             inp.media_bytes = None
 
-        telegram_bot.send_text(chat_id, format_reply(result.verdict), reply_to=mid)
+        # Alert first, so the reply can say truthfully whether the guardian was told.
+        status = notify.alert_guardians(user.id, label, result.verdict)
+        if status == "sent":
+            repo.mark_alerted(case_id)
+        alerted = status == "sent"
+        hint = "" if first_time else "/daftar_wali"  # the intro below already explains it
+        telegram_bot.send_text(chat_id, format_reply(result.verdict, guardian_line(status, hint)), reply_to=mid)
         if first_time:
             telegram_bot.send_text(chat_id, FIRST_TIME_NOTE)
             repo.set_consent(user.id)
 
-        alerted = False
-        for g in guardian_policy.guardians_to_alert(user.id, result.verdict):
-            alerted = notify.alert_guardian(g, label, result.verdict) or alerted
-        if alerted:
-            repo.mark_alerted(case_id)
         log.info("tg case=%s risk=%s (muse=%s overrides=%s) tools=%s image=%s latency=%sms alerted=%s",
                  case_id, result.verdict.risk, result.model_risk, [o["rule"] for o in result.overrides],
                  result.tools_used, result.image_mode, result.latency_ms, alerted)
