@@ -1,0 +1,17 @@
+# Secrets: never commit real env files (only the names-only example)
+.env
+.env.*
+!.env.example
+
+# Local data
+*.db
+*.db-journal
+
+# Python / tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# macOS
+.DS_Store
