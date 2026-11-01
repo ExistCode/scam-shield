@@ -130,5 +130,6 @@ def urgent_verdict(last_case: dict) -> Verdict:
         reason="Beliau bilang mungkin SUDAH terlanjur transfer / kirim kode / pasang aplikasi. Segera telepon beliau.",
         next_steps=["Telepon beliau sekarang.", "Bantu hubungi call center resmi bank untuk blokir."],
         alert_guardian=True,
+        money_sent=True,
         reply_text="Darurat: kemungkinan sudah terlanjur.",
     )

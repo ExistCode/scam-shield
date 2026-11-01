@@ -530,7 +530,8 @@ def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
             continue
 
     # Muse Wonder escalation: when Spark is unsure (or couldn't answer), ask the bigger model once.
-    if result.provider == "meta" and settings.wonder_threshold > 0 and (
+    if result.provider == "meta" and not (result.model or "").startswith("muse-wonder") \
+            and settings.wonder_threshold > 0 and (
             verdict is None or verdict.confidence < settings.wonder_threshold):
         spark = ({"risk": verdict.risk, "category": verdict.category, "confidence": verdict.confidence}
                  if verdict else None)

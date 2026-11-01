@@ -156,7 +156,7 @@ def test_followup_answered_in_context(client, monkeypatch):
         {"intent": "followup", "reply": "Segera telepon bank ya Bu.", "already_paid": True}))
     n_child = sum(1 for c, _ in sent if c == str(CHILD))
     post(PARENT, "aduh aku sudah transfer 2 juta")
-    assert any(c == str(CHILD) and "SUDAH terlanjur" in t for c, t in sent[n_child:])
+    assert any(c == str(CHILD) and "*sudah terlanjur*" in t and "Darurat" in t for c, t in sent[n_child:])
     emergency = [t for c, t in sent if c == str(PARENT)][-1]
     assert emergency.startswith("Segera telepon bank ya Bu.")
     assert "1500888" in emergency and "https://iasc.ojk.go.id" in emergency  # added by code, not the model

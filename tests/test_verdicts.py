@@ -694,6 +694,16 @@ def test_unsure_spark_escalates_to_wonder(spark_and_wonder):
     assert orchestrator.details(r)["escalation"]["spark"]["risk"] == "WASPADA"
 
 
+def test_no_escalation_when_primary_is_already_wonder(spark_and_wonder, monkeypatch):
+    from app.channels.formatting import tools_footer
+    calls = spark_and_wonder(_verdict_json(risk="WASPADA", category="lainnya", confidence=0.5, alert_guardian=False))
+    spark = orchestrator.get_provider("meta")
+    spark.model = "muse-wonder-1.0"  # MUSE_MODEL=muse-wonder-1.0
+    r = orchestrator.analyze(Input(type="text", text="halo bu"))
+    assert calls == ["meta"] and r.escalation is None
+    assert "Muse Wonder" in tools_footer(r) and "Muse Spark" not in tools_footer(r)
+
+
 def test_wonder_failure_keeps_spark_verdict(spark_and_wonder):
     import httpx
     from openai import APITimeoutError
