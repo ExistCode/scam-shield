@@ -41,7 +41,17 @@ Telegram / WhatsApp ─webhook─▶ FastAPI ─▶ "🔎 Sedang dicek…"
 5. **Official contacts are added by code, not the model.** Muse outputs a `scam_type` (fake_police, impersonation, bank_otp, investment, pinjol, other) and whether money was already sent. The code then appends contacts from the verified list in [`app/agent/contacts.py`](app/agent/contacts.py): 110, IASC, OJK 157, aduannomor.id, Halo BCA. Any other number in the model's text is removed, so a phone number can never be hallucinated.
 6. On **BAHAYA** the guardian is alerted *first*, and the reply then says exactly what happened: "Sudah kami kabari: Hans", already told a few minutes ago, delivery failed (call them yourself), or "Belum ada wali terdaftar, ketik /daftar_wali".
 7. Every reply ends with what actually ran, for example `🔎 Dicek dengan: Muse Voice → Muse Spark → cek link → aturan keamanan`.
-8. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
+8. **It talks like family, not a call centre.** On first use the bot asks one question, "Mau aku panggil apa?" (Mama, Bu Sri, Om Budi), and stores it in `user_profiles` with a casual or polite style. Guardians who link become named contacts with their relation. Muse gets this profile, so the reply reads like a text from your kid. Code also replaces any "Ibu/Bapak" that slips through. Example:
+   ```
+   🔴 BAHAYA · Ini penipuan, Mama. Jangan diikutin ya.
+   Polisi asli nggak periksa lewat telepon dan nggak pernah minta transfer.
+   1. Tutup teleponnya sekarang ya.
+   2. Jangan transfer apa pun dulu.
+   3. Telepon Hans sekarang ya, Mama.
+   📞 Polisi: 110
+   ✅ Hans udah aku kabarin ya, Mama.
+   ```
+9. If the parent replies "terus gimana?" or "aku sudah transfer" within 15 minutes, Muse answers in the context of that verdict. "Already paid" gets the bank → IASC steps (with the official contacts appended by code) and an urgent guardian alert (no cooldown).
 
 ## Channels
 
@@ -51,7 +61,7 @@ The agent core is channel-agnostic. There are two chat adapters plus the web tes
 |---|---|---|
 | Endpoint | `/webhook` | `/telegram/webhook` |
 | Auth | `X-Hub-Signature-256` (app secret) | `X-Telegram-Bot-Api-Secret-Token` |
-| Guardian linking | `daftar wali 08xx` (by phone number) | `/daftar_wali` → parent sends the deep link to their child, who taps it |
+| Guardian linking | `daftar wali 08xx anak Hans` (by phone number, relation and name optional) | `/daftar_wali anak` → parent sends the signed deep link to their child, who taps it |
 | Guardian alert | Utility template `guardian_alert` | Normal bot message (no template needed) |
 | "Checking" indicator | Separate "Sedang dicek…" message | "Sedang dicek…" edited into the verdict, plus "typing…" |
 | Local dev | Needs a public URL | `python -m app.channels.telegram_bot poll` (no URL needed) |
@@ -64,14 +74,21 @@ The agent core is channel-agnostic. There are two chat adapters plus the web tes
 
 In production, set `TELEGRAM_WEBHOOK_URL=https://<app>.up.railway.app/telegram/webhook` and a random `TELEGRAM_WEBHOOK_SECRET` (required: without it the webhook isn't registered and requests are rejected). Polling and the webhook can't run at the same time; `poll` removes the webhook, so redeploy the Railway service (or run `set-webhook`) afterwards.
 
-Telegram commands: `/daftar_wali`, `/kata_aman <petunjuk>`, `/status`, `/hapus_wali`, `/bantuan`. The plain-text WhatsApp phrases work too.
+Telegram commands:
+- `/panggil <nama>`, `/gaya santai|sopan`
+- `/daftar_wali [anak|cucu|keponakan|…]` (alias `/link`)
+- `/kata_aman <petunjuk>`, `/status`, `/hapus_wali`, `/bantuan`
+
+The plain-text WhatsApp phrases work too.
 
 ### WhatsApp commands (parent)
 
 | Command | What it does |
 |---|---|
 | *(forward anything)* | Check the message, photo, or voice note |
-| `daftar wali 08xxxxxxxxxx` | Link a guardian (child / relative) |
+| `panggil Mama` | What the bot calls you (asked once on first use) |
+| `gaya santai` / `gaya sopan` | Casual (default) or polite tone |
+| `daftar wali 08xxxxxxxxxx anak Hans` | Link a guardian; relation and name are optional and are used in replies ("Telepon Hans sekarang ya, Mama") |
 | `kata aman <petunjuk>` | Save a **hint** for the family safe word (the word itself is never stored) |
 | `hapus wali` | Remove guardians |
 | `status` | Show linked guardians |
