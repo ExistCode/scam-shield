@@ -239,3 +239,8 @@
   text: "Halo kak, kami dari tim marketing TikTok Shop sedang membuka kerja paruh waktu dari HP. Tugasnya cuma like dan follow akun, 1 tugas dibayar Rp15.000, sehari bisa dapat Rp300.000-Rp1.500.000. Minat? Balas YA untuk mulai 😊"
   expected: BAHAYA
   accept: [WASPADA]
+- id: undian_brimo_resmi
+  type: text
+  text: "Selamat siang Bapak/Ibu nasabah BRI yang terhormat 🙏\nKami dari Tim Pusat Undian BRImo FSTVL 2026 menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar Rp100.000.000 (Seratus Juta Rupiah) 🎉🎉\nNo. Undian: BRI-26-0847\nKode Pemenang: FST-7731\nUntuk proses pencairan hadiah, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 sesuai ketentuan yang berlaku dan wajib dibayarkan terlebih dahulu. Silahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌"
+  expected: BAHAYA
+  must_mention: ["laporkan nomor 0857-1122-3344 di aduannomor\\.id"]

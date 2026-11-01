@@ -386,8 +386,10 @@ const CONTACTS_TEMPLATE = [
     { from: "Tante Rina", color: "#d1527d", text: "Jangan lupa arisan Sabtu ya, di rumah Bu Ani jam 4 sore 🙏" },
     { from: "Om Budi", color: "#2a9d8f", text: "Siap, nanti aku bawa kue lapis." },
     { out: true, text: "Iya, Mama bawa risoles ya 😊" } ] },
-  { id: "undian", name: "+62 857-1122-3344", color: "#8696a0", time: "20:12", unread: 1, msgs: [
-    { text: "SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu." } ] },
+  { id: "undian", name: "+62 813-5520-7781", about: "~Pusat Undian BRImo", color: "#8696a0", time: "20:12", unread: 3, msgs: [
+    { text: "Selamat siang Bapak/Ibu nasabah BRI yang terhormat 🙏", time: "20:10" },
+    { text: "Kami dari Tim Pusat Undian *BRImo FSTVL 2026* menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar *Rp100.000.000* (Seratus Juta Rupiah) 🎉🎉\n\nNo. Undian: BRI-26-0847\nKode Pemenang: FST-7731", time: "20:11" },
+    { text: "Untuk proses pencairan hadiah, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 sesuai ketentuan yang berlaku dan wajib dibayarkan terlebih dahulu.\n\nSilahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", time: "20:12" } ] },
   { id: "hans", name: "Hans", color: "#7e57c2", time: "19:40", msgs: [
     { text: "Ma, nanti aku pulang agak malam ya, masih ada rapat." },
     { out: true, text: "Iya nak, hati-hati di jalan ya." } ] },
@@ -473,7 +475,7 @@ function renderConvo() {
          <div class="actions"><button type="button" class="hbtn fwdsel" aria-label="Teruskan">${ico("fwd")}</button></div></div>`
     : `<div class="header"><button type="button" class="hbtn back" aria-label="Kembali">${ico("back")}</button>
          <div class="chead-av" style="background:${c.color}">${c.group ? ico("group") : initials(c.name)}</div>
-         <div class="who"><div class="name">${esc(c.name)}</div><div class="sub">${c.group ? "Tante Rina, Om Budi, Anda" : "online"}</div></div>
+         <div class="who"><div class="name">${esc(c.name)}</div><div class="sub">${c.group ? "Tante Rina, Om Budi, Anda" : esc(c.about || "online")}</div></div>
          <div class="actions">${ico("video")}${ico("call")}${ico("dots")}</div></div>`;
   const rows = c.msgs.map((m, i) => {
     const side = m.out ? "out" : "in";
@@ -657,7 +659,7 @@ const SCENARIOS = {
   qris_infaq: async () => sendBlob(await asset("qris_kotak_infaq.png"), { type: "image", caption: "Ini QRIS di kotak infaq masjid, mau sedekah", forwarded: false }),
   resi: async () => sendBlob(await asset("resi_palsu_chat.png"), { type: "image" }),
   nomor_baru: () => sendText("Ma, ini nomor baru aku, hp lama rusak. Tolong transfer 2 juta dulu ya, darurat banget. Jangan bilang siapa-siapa dulu ya Ma.", true),
-  undian: () => sendText("SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu.", true),
+  undian: () => sendText("Kami dari Tim Pusat Undian BRImo FSTVL 2026 menginformasikan bahwa nomor rekening Bapak/Ibu TERPILIH sebagai pemenang hadiah ke-2 berupa uang tunai sebesar Rp100.000.000 🎉 Untuk pencairan, pemenang dikenakan pajak hadiah 1,5% sebesar Rp1.500.000 yang wajib dibayarkan terlebih dahulu. Silahkan konfirmasi ke admin kami di WA 0857-1122-3344 paling lambat hari ini pukul 17.00 WIB. Apabila tidak ada konfirmasi, hadiah dianggap HANGUS ❌", true),
   arisan: () => sendText("Ibu-ibu, arisan bulan ini di rumah Bu Ani hari Sabtu jam 4 sore ya. Jangan lupa bawa kue 🙏", true),
 };
 document.querySelectorAll("[data-scn]").forEach((b) => b.addEventListener("click", () => { show("ronda"); SCENARIOS[b.dataset.scn](); }));
