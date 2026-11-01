@@ -1,4 +1,4 @@
-"""Reads configuration from environment variables (Render env vars in prod, .env locally)."""
+"""Reads configuration from environment variables (Railway/Render env vars in prod, .env locally)."""
 import os
 from dataclasses import dataclass, field
 
@@ -60,6 +60,14 @@ class Settings:
     database_url: str = field(default_factory=_database_url)
     safe_browsing_key: str = field(default_factory=lambda: _env("GOOGLE_SAFE_BROWSING_KEY"))
     max_tool_steps: int = field(default_factory=lambda: int(_env("MAX_TOOL_STEPS", "4")))
+
+    # Security. On Railway/Render (or APP_ENV=production) missing secrets fail closed instead of
+    # being skipped with a warning.
+    production: bool = field(default_factory=lambda: _env("APP_ENV").lower() == "production"
+                             or bool(_env("RAILWAY_ENVIRONMENT") or _env("RENDER")))
+    # Shared secret for POST /analyze (sent as X-Analyze-Token). Unset in production = endpoint off.
+    analyze_token: str = field(default_factory=lambda: _env("ANALYZE_TOKEN"))
+    analyze_rate_per_min: int = field(default_factory=lambda: int(_env("ANALYZE_RATE_PER_MIN", "10")))
 
     @property
     def graph_base(self) -> str:

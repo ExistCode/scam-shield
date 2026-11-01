@@ -65,6 +65,9 @@ _CMD_STATUS = re.compile(r"^\s*status\s*$", re.I)
 
 def verify_signature(body: bytes, header: str | None) -> bool:
     if not settings.wa_app_secret:
+        if settings.production:
+            log.error("WA_APP_SECRET not set; rejecting webhook in production")
+            return False
         log.warning("WA_APP_SECRET not set; skipping signature check (dev only)")
         return True
     if not header or not header.startswith("sha256="):

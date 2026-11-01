@@ -20,7 +20,9 @@ STATIC = Path(__file__).parent / "static"
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
-    if settings.telegram_bot_token and settings.telegram_webhook_url:
+    if settings.production and settings.telegram_webhook_url and not settings.telegram_webhook_secret:
+        logging.getLogger("cekdulu").error("TELEGRAM_WEBHOOK_SECRET is required in production; webhook not registered")
+    elif settings.telegram_bot_token and settings.telegram_webhook_url:
         from app.channels import telegram_bot
 
         try:
@@ -53,4 +55,5 @@ def health():
         "signature_check": bool(settings.wa_app_secret),
         "telegram_configured": bool(settings.telegram_bot_token),
         "telegram_secret_check": bool(settings.telegram_webhook_secret),
+        "analyze_locked": bool(settings.analyze_token) or settings.production,
     }

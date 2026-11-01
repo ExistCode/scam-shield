@@ -95,6 +95,8 @@ async def receive(request: Request, background: BackgroundTasks):
         got = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
         if not hmac.compare_digest(got, settings.telegram_webhook_secret):
             raise HTTPException(status_code=401, detail="bad secret")
+    elif settings.production:
+        raise HTTPException(status_code=503, detail="TELEGRAM_WEBHOOK_SECRET not set")
     else:
         log.warning("TELEGRAM_WEBHOOK_SECRET not set; accepting unauthenticated updates (dev only)")
     update = await request.json()

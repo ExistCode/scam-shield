@@ -14,7 +14,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from app.agent import orchestrator
-from app.agent.schema import Input, Verdict
+from app.agent.schema import FALLBACK_VERDICT, AnalysisResult, Input, Verdict
 from app.tools import links, qris
 
 CASES = yaml.safe_load((Path(__file__).parent / "cases.yaml").read_text())
@@ -454,3 +454,26 @@ def test_video_audio_extraction():
     from app.tools.transcribe import to_wav
     wav = to_wav(path.read_bytes())
     assert wav[:4] == b"RIFF" and len(wav) > 100_000
+
+
+def test_analyze_endpoint_is_gated(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+
+    from app.api import analyze as api
+    from app.main import app
+
+    monkeypatch.setattr(api, "analyze", lambda inp: AnalysisResult(verdict=FALLBACK_VERDICT, provider="fake", model="fake"))
+    api._hits.clear()
+    c = TestClient(app)
+    body = {"type": "text", "text": "halo"}
+
+    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="", production=True, analyze_rate_per_min=10))
+    assert c.post("/analyze", json=body).status_code == 403          # prod without a token: off
+
+    monkeypatch.setattr(api, "settings", SimpleNamespace(analyze_token="demo", production=True, analyze_rate_per_min=3))
+    assert c.post("/analyze", json=body).status_code == 401
+    assert c.post("/analyze", json=body, headers={"X-Analyze-Token": "nope"}).status_code == 401
+    ok = [c.post("/analyze", json=body, headers={"X-Analyze-Token": "demo"}).status_code for _ in range(4)]
+    assert ok == [200, 200, 200, 429]                                 # rate limited per IP

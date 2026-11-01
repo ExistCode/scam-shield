@@ -1,19 +1,46 @@
 """POST /analyze: channel-free entry point for curl and the test page."""
 import base64
 import binascii
+import hmac
+import threading
+import time
+from collections import defaultdict, deque
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.agent.orchestrator import analyze
 from app.agent.schema import Input, Verdict
 from app.channels.formatting import format_reply
+from app.config import settings
 from app.db import repo
 
 router = APIRouter()
 
-MAX_MEDIA = 20 * 1024 * 1024
+MAX_MEDIA = 10 * 1024 * 1024
+
+# Every call spends Muse credits, so the endpoint is gated: a shared token (ANALYZE_TOKEN) and a
+# per-IP rate limit. Without a token it only works in local dev.
+_hits: dict[str, deque] = defaultdict(deque)
+_hits_lock = threading.Lock()
+
+
+def _check_access(request: Request, token: str | None) -> None:
+    if settings.analyze_token:
+        if not token or not hmac.compare_digest(token, settings.analyze_token):
+            raise HTTPException(401, "missing or wrong X-Analyze-Token")
+    elif settings.production:
+        raise HTTPException(403, "/analyze is disabled: set ANALYZE_TOKEN to enable it")
+    ip = request.client.host if request.client else "?"
+    now = time.monotonic()
+    with _hits_lock:
+        q = _hits[ip]
+        while q and now - q[0] > 60:
+            q.popleft()
+        if len(q) >= settings.analyze_rate_per_min:
+            raise HTTPException(429, "too many requests, try again in a minute")
+        q.append(now)
 
 
 class AnalyzeRequest(BaseModel):
@@ -39,7 +66,11 @@ class AnalyzeResponse(BaseModel):
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-def analyze_endpoint(req: AnalyzeRequest) -> AnalyzeResponse:
+def analyze_endpoint(req: AnalyzeRequest, request: Request,
+                     x_analyze_token: str | None = Header(default=None)) -> AnalyzeResponse:
+    _check_access(request, x_analyze_token)
+    if req.media_base64 and len(req.media_base64) > MAX_MEDIA * 4 // 3 + 64:
+        raise HTTPException(413, "media too large")
     media = None
     if req.media_base64:
         b64 = req.media_base64.split(",", 1)[1] if req.media_base64.startswith("data:") else req.media_base64
