@@ -126,6 +126,70 @@
   .fwdflag.on { display: block; }
   .readonly .composer .field { opacity: .9; }
 
+  /* ------------------------------------------------------------ Mama's phone: chat list, contact chats, forward */
+  .notch { z-index: 9; }
+  .view { position: absolute; inset: 0; display: flex; flex-direction: column; background: #fff; z-index: 3; }
+  .view[hidden] { display: none; }
+  .view.convo { background: var(--bg-chat); }
+  .lhead { background: var(--wa-green); color: #fff; padding: 10px 16px 0; }
+  .lhead .top { display: flex; align-items: center; justify-content: space-between; height: 40px; }
+  .lhead .title { font-size: 21px; font-weight: 600; letter-spacing: .2px; }
+  .lhead .top svg { width: 22px; height: 22px; fill: #fff; margin-left: 20px; }
+  .lhead .top .hbtn svg { margin-left: 0; }
+  .tabs { display: flex; margin-top: 6px; }
+  .tabs span { flex: 1; text-align: center; font-size: 14px; font-weight: 600; padding: 10px 0 9px; opacity: .72;
+    text-transform: uppercase; letter-spacing: .3px; border-bottom: 3px solid transparent; }
+  .tabs span.on { opacity: 1; border-bottom-color: #fff; }
+  .tabs .count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 9px; background: #fff;
+    color: var(--wa-green); font-size: 11px; margin-left: 4px; padding: 0 4px; }
+  .rows { flex: 1; overflow-y: auto; }
+  .rows::-webkit-scrollbar { width: 0; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 0 14px; cursor: pointer; width: 100%; border: 0;
+    background: none; font: inherit; text-align: left; color: inherit; }
+  .row:hover, .row:focus-visible { background: #f5f6f6; outline: none; }
+  .row .av { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; color: #fff;
+    font-weight: 600; font-size: 18px; flex: none; }
+  .row .av svg { width: 28px; height: 28px; fill: #fff; }
+  .row .mid { flex: 1; min-width: 0; padding: 13px 0; border-bottom: 1px solid #eef0f1; display: grid;
+    grid-template-columns: 1fr auto; row-gap: 3px; column-gap: 8px; }
+  .row .nm { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 4px; }
+  .row .nm svg { width: 15px; height: 15px; fill: var(--wa-accent); flex: none; }
+  .row .tm { font-size: 12px; color: var(--muted); align-self: center; }
+  .row .tm.unread { color: var(--wa-accent); font-weight: 600; }
+  .row .pv { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 3px; min-width: 0; }
+  .row .pv .typing { color: var(--wa-accent); font-weight: 600; }
+  .row .pv svg { width: 16px; height: 11px; flex: none; }
+  .row .badge { min-width: 21px; height: 21px; border-radius: 11px; background: var(--wa-accent); color: #fff;
+    font-size: 12px; font-weight: 600; display: grid; place-items: center; padding: 0 6px; justify-self: end; }
+  .row .pin { width: 15px; height: 15px; fill: #8696a0; justify-self: end; }
+  .fabnew { position: absolute; right: 18px; bottom: 22px; width: 56px; height: 56px; border-radius: 16px; background: var(--wa-accent);
+    display: grid; place-items: center; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+  .fabnew svg { width: 24px; height: 24px; fill: #fff; }
+  .chead-av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 600; flex: none; }
+  .header .tap { cursor: pointer; border-radius: 50%; }
+  .hbtn { border: 0; background: none; padding: 0; cursor: pointer; display: grid; place-items: center; border-radius: 50%; }
+  .hbtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .header.selecting { min-height: 56px; padding-left: 12px; }
+  .header.selecting .who .name { font-size: 18px; }
+  .lrow { display: flex; align-items: center; gap: 8px; margin: 0 -14px; padding: 1px 14px; width: calc(100% + 28px);
+    cursor: pointer; flex: none; }
+  .lrow.out { justify-content: flex-end; }
+  .lrow .msg { max-width: 78%; }
+  .lrow.sel { background: rgba(0, 128, 105, .16); }
+  .fbtn { width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(11, 20, 26, .28); display: grid;
+    place-items: center; cursor: pointer; flex: none; }
+  .fbtn svg { width: 17px; height: 17px; fill: #fff; }
+  .fbtn:hover { background: rgba(11, 20, 26, .42); }
+  .sender { font-size: 12.5px; font-weight: 600; margin-bottom: 1px; }
+  .picker { position: absolute; inset: 0; z-index: 7; background: #fff; display: flex; flex-direction: column; animation: slide .18s ease-out; }
+  @keyframes slide { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .picker .lhead { padding-bottom: 12px; }
+  .picker .sub2 { font-size: 13px; opacity: .85; }
+  .picker .hint { font-size: 12.5px; color: var(--muted); padding: 10px 16px 4px; text-transform: uppercase; letter-spacing: .3px; }
+  .picker .row .tag { font-size: 11px; font-weight: 600; color: var(--wa-green); background: #e7fce3; border-radius: 8px; padding: 1px 7px; }
+
   /* ------------------------------------------------------------ control panel (hidden while recording) */
   #panelToggle { position: fixed; right: 16px; top: 16px; z-index: 5; border: 0; background: #fff; border-radius: 20px;
     padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
@@ -168,6 +232,11 @@
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></symbol>
   <symbol id="i-person" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.7 0-8 1.3-8 4v2h16v-2c0-2.7-5.3-4-8-4z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 14 15.5l.3.3v.8l5 5 1.5-1.5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M16 9V4h1V2H7v2h1v5l-2 2v2h5.2v7h1.6v-7H18v-2z"/></symbol>
+  <symbol id="i-group" viewBox="0 0 24 24"><path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm0 2c-2.3 0-7 1.2-7 3.5V19h14v-2.5C15 14.2 10.3 13 8 13zm8 0c-.3 0-.6 0-1 .1 1.2.8 2 1.9 2 3.4V19h6v-2.5c0-2.3-4.7-3.5-7-3.5z"/></symbol>
+  <symbol id="i-chatplus" viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-3 9h-4v4h-2v-4H7V9h4V5h2v4h4z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></symbol>
   <symbol id="i-tick2" viewBox="0 0 16 11"><path d="M11.07.65 10.4.12a.5.5 0 0 0-.7.08L4.4 6.9 2.5 5.1a.5.5 0 0 0-.7 0l-.6.6a.5.5 0 0 0 0 .7l2.9 2.8a.5.5 0 0 0 .7 0l.3-.3 6.1-7.6a.5.5 0 0 0-.1-.65zm4 0-.67-.53a.5.5 0 0 0-.7.08L8.4 6.9l-.6-.6-1 1.2 1.3 1.3a.5.5 0 0 0 .7 0l.3-.3 6.1-7.6a.5.5 0 0 0-.1-.65z"/></symbol>
 </svg>
 
@@ -183,7 +252,7 @@
 <button id="panelToggle" type="button">Kontrol demo</button>
 <aside id="panel">
   <h2>Siapkan</h2>
-  <button class="s" id="setup" type="button">Langsung siap: Mama + wali Hans<small>Tanpa onboarding, chat kosong</small></button>
+  <button class="s" id="setup" type="button">Langsung siap: Mama + wali Hans<small>Tanpa onboarding; HP Mama mulai di daftar chat</small></button>
   <button class="s" id="fresh" type="button">Mulai dari nol<small>Tampilkan onboarding "mau aku panggil apa?"</small></button>
   <p id="sessionInfo"></p>
 
@@ -303,6 +372,200 @@ document.addEventListener("click", (e) => {
 function setTyping(phone, on) { phone.sub.textContent = on ? "mengetik…" : "online"; }
 function markRead(phone) { phone.pendingTicks.forEach((t) => t.classList.add("read")); phone.pendingTicks = []; }
 
+// ------------------------------------------------------------------ Mama's phone: chat list -> contact chat -> forward to Ronda
+const DOC_MIME = "application/vnd.android.package-archive";
+const CONTACTS_TEMPLATE = [
+  { id: "ronda", name: "Ronda", ronda: true, pinned: true, time: "", preview: "Teruskan pesan yang mencurigakan ke sini 🛡️" },
+  { id: "kurir", name: "Kurir J&T", color: "#e2554a", time: "21:48", unread: 2, msgs: [
+    { text: "Selamat siang, kami dari J&T Express. Paket atas nama Ibu tertahan di gudang karena alamat kurang lengkap." },
+    { doc: { name: "Cek_Resi_JNT.apk", size: "2,4 MB" }, text: "Silakan cek resi dan konfirmasi alamat lewat aplikasi ini ya Bu, paling lambat hari ini." } ] },
+  { id: "nomor_baru", name: "+62 812-9031-4477", color: "#8696a0", time: "21:31", unread: 2, msgs: [
+    { text: "Ma, ini nomor baru aku. HP lama rusak, nomornya nggak bisa dipakai 😢" },
+    { text: "Ma tolong transfer 2 juta dulu ya, darurat banget. Nanti aku ganti. Jangan bilang siapa-siapa dulu ya Ma 🙏" } ] },
+  { id: "keluarga", name: "Keluarga Besar 🏠", group: true, color: "#5b8def", time: "21:05", msgs: [
+    { from: "Tante Rina", color: "#d1527d", text: "Jangan lupa arisan Sabtu ya, di rumah Bu Ani jam 4 sore 🙏" },
+    { from: "Om Budi", color: "#2a9d8f", text: "Siap, nanti aku bawa kue lapis." },
+    { out: true, text: "Iya, Mama bawa risoles ya 😊" } ] },
+  { id: "undian", name: "+62 857-1122-3344", color: "#8696a0", time: "20:12", unread: 1, msgs: [
+    { text: "SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu." } ] },
+  { id: "hans", name: "Hans", color: "#7e57c2", time: "19:40", msgs: [
+    { text: "Ma, nanti aku pulang agak malam ya, masih ada rapat." },
+    { out: true, text: "Iya nak, hati-hati di jalan ya." } ] },
+  { id: "bu_ani", name: "Bu Ani", color: "#f4a261", time: "Kemarin", msgs: [
+    { text: "Makasih ya Bu kuenya kemarin, enak banget 🙏" },
+    { out: true, text: "Sama-sama Bu Ani 😊" } ] },
+];
+let CONTACTS = structuredClone(CONTACTS_TEMPLATE);
+const contact = (id) => CONTACTS.find((c) => c.id === id);
+const initials = (name) => name.startsWith("+") ? ico("person") : name.replace(/[^A-Za-z ]/g, "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+const statusbar = () => `<div class="statusbar"><span class="clock">${now()}</span>
+  <span class="icons"><svg viewBox="0 0 24 24"><path d="M2 22h3V12H2zm5 0h3V9H7zm5 0h3V5h-3zm5 0h3V2h-3z"/></svg>
+  <svg viewBox="0 0 24 24"><path d="M12 21 0 8.5a17 17 0 0 1 24 0z"/></svg>
+  <svg viewBox="0 0 24 24"><path d="M16 4h-2V2h-4v2H8a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg></span></div>`;
+// first non-empty line without *bold*/_italic_ markers (keeps underscores inside words, e.g. Cek_Resi.apk)
+const plain = (t) => (t.replace(/(^|[\s(])[*_~]+|[*_~]+(?=[\s).,!?:]|$)/gm, "$1").split("\n").find((l) => l.trim()) || "").trim();
+
+const listView = document.createElement("div");
+listView.className = "view list";
+const convoView = document.createElement("div");
+convoView.className = "view convo"; convoView.hidden = true;
+P.el.append(listView, convoView);
+let currentView = "list", openId = null, selected = new Set();
+
+// Ronda chat header: back arrow returns to the chat list
+const rondaBack = $(".header svg", P.el);
+rondaBack.classList.add("tap");
+rondaBack.addEventListener("click", () => show("list"));
+
+function show(view, id = null) {
+  currentView = view;
+  listView.hidden = view !== "list";
+  convoView.hidden = view !== "convo";
+  if (view === "ronda") { const r = contact("ronda"); r.unread = 0; P.chat.scrollTop = P.chat.scrollHeight; }
+  if (view === "convo") { openId = id; selected.clear(); renderConvo(); }
+  if (view === "list") renderList();
+}
+
+function renderList() {
+  const unreadChats = CONTACTS.filter((c) => c.unread).length;
+  const rows = CONTACTS.map((c) => {
+    const last = c.msgs ? c.msgs[c.msgs.length - 1] : null;
+    let pv = c.preview || (last ? (last.doc ? "📄 " + last.doc.name : last.text) : "");
+    if (last && last.from) pv = `${last.from}: ${pv}`;
+    const outTick = (last && last.out) || c.lastOut ? `<svg viewBox="0 0 16 11" class="tick read"><use href="#i-tick2"/></svg>` : "";
+    const typing = c.ronda && P.sub.textContent.startsWith("mengetik");
+    const av = c.ronda ? `<div class="av" style="background:#e7fce3"><svg style="fill:var(--wa-teal-dark)"><use href="#i-shield"/></svg></div>`
+      : c.group ? `<div class="av" style="background:${c.color}">${ico("group")}</div>`
+      : `<div class="av" style="background:${c.color}">${initials(c.name)}</div>`;
+    return `<button class="row" type="button" data-id="${c.id}">${av}<div class="mid">
+      <div class="nm">${esc(c.name)}${c.ronda ? ico("verified") : ""}</div>
+      <div class="tm${c.unread ? " unread" : ""}">${esc(c.time || "")}</div>
+      <div class="pv">${typing ? `<span class="typing">mengetik…</span>` : outTick + esc(plain(pv))}</div>
+      ${c.unread ? `<div class="badge">${c.unread}</div>` : c.pinned ? ico("pin", "pin") : "<div></div>"}
+    </div></button>`;
+  }).join("");
+  listView.innerHTML = statusbar() + `<div class="lhead"><div class="top"><span class="title">Chat</span>
+      <span>${ico("cam")}${ico("search")}${ico("dots")}</span></div>
+      <div class="tabs"><span class="on">Chat${unreadChats ? `<span class="count">${unreadChats}</span>` : ""}</span><span>Status</span><span>Panggilan</span></div></div>
+    <div class="rows">${rows}</div><div class="fabnew">${ico("chatplus")}</div>`;
+  listView.querySelectorAll(".row").forEach((r) => r.addEventListener("click", () => {
+    const c = contact(r.dataset.id);
+    c.unread = 0;
+    show(c.ronda ? "ronda" : "convo", c.id);
+  }));
+}
+
+function msgInner(m, c) {
+  const sender = m.from ? `<div class="sender" style="color:${m.color}">${esc(m.from)}</div>` : "";
+  const doc = m.doc ? `<div class="doc"><div class="ico">${esc(m.doc.name.split(".").pop().toUpperCase())}</div><div>
+    <div class="dn">${esc(m.doc.name)}</div><div class="ds">${esc(m.doc.size)} · ${esc(m.doc.name.split(".").pop().toUpperCase())}</div></div></div>` : "";
+  const fwd = m.forwarded ? `<div class="fwd">${ico("fwd")} Diteruskan</div>` : "";
+  const ticks = m.out ? ` <svg viewBox="0 0 16 11" class="tick read"><use href="#i-tick2"/></svg>` : "";
+  return fwd + sender + doc + (m.text ? textHtml(m.text) : "") + `<span class="meta">${esc(m.time || c.time || now())}${ticks}</span>`;
+}
+
+function renderConvo() {
+  const c = contact(openId);
+  const n = selected.size;
+  const head = n
+    ? `<div class="header selecting"><button type="button" class="hbtn close" aria-label="Batal pilih">${ico("close")}</button>
+         <div class="who"><div class="name">${n}</div></div>
+         <div class="actions"><button type="button" class="hbtn fwdsel" aria-label="Teruskan">${ico("fwd")}</button></div></div>`
+    : `<div class="header"><button type="button" class="hbtn back" aria-label="Kembali">${ico("back")}</button>
+         <div class="chead-av" style="background:${c.color}">${c.group ? ico("group") : initials(c.name)}</div>
+         <div class="who"><div class="name">${esc(c.name)}</div><div class="sub">${c.group ? "Tante Rina, Om Budi, Anda" : "online"}</div></div>
+         <div class="actions">${ico("video")}${ico("call")}${ico("dots")}</div></div>`;
+  const rows = c.msgs.map((m, i) => {
+    const side = m.out ? "out" : "in";
+    const btn = m.out ? "" : `<button class="fbtn" type="button" data-fwd="${i}" aria-label="Teruskan pesan">${ico("fwd")}</button>`;
+    return `<div class="lrow ${side}${selected.has(i) ? " sel" : ""}" data-i="${i}">
+      <div class="msg ${side}${i && c.msgs[i - 1].out === m.out ? " cont" : ""}">${msgInner(m, c)}</div>${btn}</div>`;
+  }).join("");
+  convoView.innerHTML = statusbar() + head + `<div class="chat"><div class="chip">Hari ini</div>${rows}</div>
+    <div class="composer"><div class="field">${ico("emoji")}<textarea rows="1" placeholder="Ketik pesan"></textarea>
+    ${ico("clip")}${ico("cam")}</div><button class="fab" type="button" aria-label="Kirim">${ico("mic")}</button></div>`;
+  const chatEl = $(".chat", convoView);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  $(".back", convoView)?.addEventListener("click", () => show("list"));
+  $(".close", convoView)?.addEventListener("click", () => { selected.clear(); renderConvo(); });
+  $(".fwdsel", convoView)?.addEventListener("click", () => openPicker([...selected].sort((a, b) => a - b)));
+  convoView.querySelectorAll(".fbtn").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation(); openPicker([+b.dataset.fwd]);
+  }));
+  convoView.querySelectorAll(".lrow").forEach((r) => r.addEventListener("click", () => {
+    const i = +r.dataset.i;
+    selected.has(i) ? selected.delete(i) : selected.add(i);
+    renderConvo();
+  }));
+  // typing in a normal chat just adds Mama's own bubble (no backend)
+  const ta = $("textarea", convoView);
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && ta.value.trim()) {
+      e.preventDefault(); c.msgs.push({ out: true, text: ta.value.trim(), time: now() }); c.time = now(); renderConvo();
+    }
+  });
+}
+
+function openPicker(indices) {
+  if (!indices.length) return;
+  const src = contact(openId);
+  const targets = CONTACTS.filter((c) => c.id !== src.id);
+  const picker = document.createElement("div");
+  picker.className = "picker";
+  picker.innerHTML = statusbar() + `<div class="lhead"><div class="top"><span style="display:flex;align-items:center;gap:14px">
+      <button type="button" class="hbtn cancel" aria-label="Batal">${ico("back")}</button><span><span class="title" style="font-size:19px">Teruskan ke…</span>
+      <div class="sub2">${indices.length} pesan dipilih</div></span></span><span>${ico("search")}</span></div></div>
+    <div class="hint">Chat terbaru</div><div class="rows">` + targets.map((c) => {
+      const av = c.ronda ? `<div class="av" style="background:#e7fce3"><svg style="fill:var(--wa-teal-dark)"><use href="#i-shield"/></svg></div>`
+        : c.group ? `<div class="av" style="background:${c.color}">${ico("group")}</div>`
+        : `<div class="av" style="background:${c.color}">${initials(c.name)}</div>`;
+      return `<button class="row" type="button" data-to="${c.id}">${av}<div class="mid" style="grid-template-columns:1fr">
+        <div class="nm">${esc(c.name)}${c.ronda ? ico("verified") + `<span class="tag">Cek penipuan</span>` : ""}</div>
+        <div class="pv">${c.ronda ? "Asisten cek pesan mencurigakan" : c.group ? "Grup" : "Kontak"}</div></div></button>`;
+    }).join("") + `</div>`;
+  P.el.appendChild(picker);
+  $(".cancel", picker).addEventListener("click", () => picker.remove());
+  picker.querySelectorAll(".row").forEach((r) => r.addEventListener("click", () => {
+    picker.remove();
+    forwardTo(r.dataset.to, indices.map((i) => src.msgs[i]));
+  }));
+}
+
+function forwardTo(toId, msgs) {
+  selected.clear();
+  const target = contact(toId);
+  if (!target.ronda) {  // forwarding to family just copies the bubbles there
+    msgs.forEach((m) => target.msgs.push({ ...m, out: true, from: undefined, forwarded: true, time: now() }));
+    target.time = now();
+    show("convo", toId);
+    return;
+  }
+  show("ronda");
+  target.time = now(); target.lastOut = true; target.preview = plain(msgs[msgs.length - 1].text || msgs[msgs.length - 1].doc?.name || "");
+  const doc = msgs.find((m) => m.doc);
+  const texts = msgs.map((m) => m.text).filter(Boolean);
+  msgs.forEach((m) => {
+    if (m.doc) {
+      const ext = m.doc.name.split(".").pop().toUpperCase();
+      bubble(P, "out", `<div class="doc"><div class="ico">${esc(ext)}</div><div><div class="dn">${esc(m.doc.name)}</div>
+        <div class="ds">${esc(m.doc.size)} · ${esc(ext)}</div></div></div>` + (m.text ? textHtml(m.text) : ""), { forwarded: true });
+    } else {
+      bubble(P, "out", textHtml(m.text), { forwarded: true });
+    }
+  });
+  // one check for everything that was forwarded together (like a parent forwarding a whole conversation)
+  if (doc) send({ type: "document", text: texts.join("\n"), filename: doc.doc.name, mime: DOC_MIME, forwarded: true });
+  else send({ type: "text", text: texts.join("\n"), forwarded: true });
+}
+
+function noteRondaMessage(text) {
+  const r = contact("ronda");
+  r.preview = plain(text); r.time = now(); r.lastOut = false;
+  if (currentView !== "ronda" && !WORKING.test(text)) r.unread = (r.unread || 0) + 1;
+  if (currentView === "list") renderList();
+}
+renderList();
+
 // ------------------------------------------------------------------ sending
 let msgSeq = 0;
 async function post(path, body) {
@@ -315,7 +578,7 @@ async function send(payload) {
   $("#err").textContent = "";
   try {
     await post("/demo/send", { session, id: `m${Date.now()}${msgSeq++}`, ...payload });
-    setTimeout(() => setTyping(P, true), 500);
+    setTimeout(() => { setTyping(P, true); if (currentView === "list") renderList(); }, 500);
   } catch (e) { $("#err").textContent = "Gagal kirim: " + e.message; }
 }
 const toB64 = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
@@ -397,12 +660,16 @@ const SCENARIOS = {
   undian: () => sendText("SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu.", true),
   arisan: () => sendText("Ibu-ibu, arisan bulan ini di rumah Bu Ani hari Sabtu jam 4 sore ya. Jangan lupa bawa kue 🙏", true),
 };
-document.querySelectorAll("[data-scn]").forEach((b) => b.addEventListener("click", () => SCENARIOS[b.dataset.scn]()));
+document.querySelectorAll("[data-scn]").forEach((b) => b.addEventListener("click", () => { show("ronda"); SCENARIOS[b.dataset.scn](); }));
 document.querySelectorAll("[data-type]").forEach((b) => b.addEventListener("click", () => {
+  if (currentView !== "ronda") show("ronda");
   P.ta.value = b.dataset.type; P.ta.dispatchEvent(new Event("input")); P.ta.focus();
 }));
 
 function clearPhones() {
+  CONTACTS = structuredClone(CONTACTS_TEMPLATE);
+  document.querySelectorAll(".picker").forEach((x) => x.remove());
+  show("list");
   for (const ph of [P, G]) {
     ph.chat.querySelectorAll(".msg").forEach((m) => m.remove()); ph.lastSide = null; ph.pendingTicks = []; setTyping(ph, false);
   }
@@ -430,6 +697,7 @@ async function poll() {
         markRead(phone);
         bubble(phone, "in", textHtml(m.text));
         setTyping(phone, phone === P && WORKING.test(m.text));
+        if (phone === P) noteRondaMessage(m.text);
         if (phone === G) setTyping(G, false);
       }
     }
