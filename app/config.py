@@ -53,7 +53,7 @@ class Settings:
     telegram_bot_token: str = field(default_factory=lambda: _env("TELEGRAM_BOT_TOKEN"))
     # Sent by Telegram in X-Telegram-Bot-Api-Secret-Token; you choose it (A-Z a-z 0-9 _ -)
     telegram_webhook_secret: str = field(default_factory=lambda: _env("TELEGRAM_WEBHOOK_SECRET"))
-    # If set (e.g. https://cek-dulu.onrender.com/telegram/webhook) the webhook is registered on startup
+    # If set (e.g. https://<app>.up.railway.app/telegram/webhook) the webhook is registered on startup
     telegram_webhook_url: str = field(default_factory=lambda: _env("TELEGRAM_WEBHOOK_URL"))
 
     # Data / misc
@@ -64,7 +64,8 @@ class Settings:
     # Security. On Railway/Render (or APP_ENV=production) missing secrets fail closed instead of
     # being skipped with a warning.
     production: bool = field(default_factory=lambda: _env("APP_ENV").lower() == "production"
-                             or bool(_env("RAILWAY_ENVIRONMENT") or _env("RENDER")))
+                             or any(_env(v) for v in ("RAILWAY_ENVIRONMENT_ID", "RAILWAY_ENVIRONMENT_NAME",
+                                                      "RAILWAY_ENVIRONMENT", "RENDER")))
     # Shared secret for POST /analyze (sent as X-Analyze-Token). Unset in production = endpoint off.
     analyze_token: str = field(default_factory=lambda: _env("ANALYZE_TOKEN"))
     analyze_rate_per_min: int = field(default_factory=lambda: int(_env("ANALYZE_RATE_PER_MIN", "10")))

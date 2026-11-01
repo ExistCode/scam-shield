@@ -2,8 +2,8 @@
 
 Local dev without a public URL (long polling):
     .venv/bin/python -m app.channels.telegram_bot poll
-Production (Render):
-    .venv/bin/python -m app.channels.telegram_bot set-webhook https://<service>.onrender.com/telegram/webhook
+Production (Railway):
+    .venv/bin/python -m app.channels.telegram_bot set-webhook https://<app>.up.railway.app/telegram/webhook
     (or set TELEGRAM_WEBHOOK_URL and it's registered on startup)
 """
 from __future__ import annotations
