@@ -67,6 +67,8 @@ def tools_footer(result: AnalysisResult) -> str:
         steps.append("Muse Voice")
     if result.provider == "meta":
         model = "Muse Spark"
+    elif result.provider == "wonder":  # Spark was unsure, Muse Wonder gave the final answer
+        model = "Muse Spark → Muse Wonder (cek ulang)"
     elif result.model:
         model = f"{result.model.rsplit('/', 1)[-1]} (cadangan)"
     else:

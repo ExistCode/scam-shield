@@ -1,6 +1,7 @@
 """Provider switch: one OpenAI-compatible client, base URL per provider.
 
 meta      -> Muse Spark via https://api.meta.ai/v1 (default)
+wonder    -> Muse Wonder, same endpoint; used as a second opinion when Spark is unsure
 fireworks -> Llama via Fireworks (optional fallback)
 """
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ class Provider:
     client: OpenAI
     supports_reasoning_effort: bool
     supports_images: bool
+    reasoning_effort: str = ""
 
     def chat(self, messages: list, tools: list | None = None, response_format: dict | None = None):
         kwargs: dict = {"model": self.model, "messages": messages}
@@ -26,8 +28,8 @@ class Provider:
             kwargs["tool_choice"] = "auto"
         if response_format:
             kwargs["response_format"] = response_format
-        if self.supports_reasoning_effort and settings.muse_reasoning_effort:
-            kwargs["reasoning_effort"] = settings.muse_reasoning_effort
+        if self.supports_reasoning_effort and self.reasoning_effort:
+            kwargs["reasoning_effort"] = self.reasoning_effort
         return self.client.chat.completions.create(**kwargs)
 
 
@@ -46,12 +48,22 @@ def get_provider(name: str | None = None) -> Provider:
         )
     if not settings.meta_api_key:
         raise RuntimeError("META_API_KEY is not set")
+    if name == "wonder":
+        return Provider(
+            name="wonder",
+            model=settings.wonder_model,
+            client=OpenAI(api_key=settings.meta_api_key, base_url=settings.meta_base_url, timeout=30, max_retries=0),
+            supports_reasoning_effort=True,
+            supports_images=True,
+            reasoning_effort=settings.wonder_reasoning_effort,
+        )
     return Provider(
         name="meta",
         model=settings.muse_model,
         client=OpenAI(api_key=settings.meta_api_key, base_url=settings.meta_base_url, timeout=40, max_retries=1),
         supports_reasoning_effort=True,
         supports_images=True,
+        reasoning_effort=settings.muse_reasoning_effort,
     )
 
 

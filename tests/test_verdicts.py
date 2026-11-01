@@ -636,3 +636,65 @@ def test_analyze_endpoint_is_gated(monkeypatch):
     assert c.post("/analyze", json=body, headers={"X-Analyze-Token": "nope"}).status_code == 401
     ok = [c.post("/analyze", json=body, headers={"X-Analyze-Token": "demo"}).status_code for _ in range(4)]
     assert ok == [200, 200, 200, 429]                                 # rate limited per IP
+
+
+# --------------------------------------------------------------------------- Muse Wonder escalation
+
+def _named_provider(name, model, verdict_json, calls):
+    class P:
+        supports_images = True
+
+        def chat(self, messages, tools=None, response_format=None):
+            calls.append(name)
+            msg = SimpleNamespace(content=verdict_json, tool_calls=None)
+            return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+    p = P()
+    p.name, p.model = name, model
+    return p
+
+
+@pytest.fixture
+def spark_and_wonder(monkeypatch):
+    def install(spark_json, wonder_json=None, wonder_exc=None):
+        calls = []
+        spark = _named_provider("meta", "muse-spark-1.3", spark_json, calls)
+        wonder = _named_provider("wonder", "muse-wonder-1.0", wonder_json, calls)
+        if wonder_exc:
+            wonder.chat = lambda *a, **k: calls.append("wonder") or (_ for _ in ()).throw(wonder_exc)
+
+        def get(name=None):
+            return wonder if name == "wonder" else spark
+        monkeypatch.setattr(orchestrator, "get_provider", get)
+        monkeypatch.setattr(orchestrator, "fallback_name", lambda primary: None)
+        return calls
+    return install
+
+
+def test_confident_spark_is_not_escalated(spark_and_wonder):
+    calls = spark_and_wonder(_verdict_json(confidence=0.95))
+    r = orchestrator.analyze(Input(type="text", text="CS BCA minta OTP"))
+    assert calls == ["meta"] and r.escalation is None and r.provider == "meta"
+
+
+def test_unsure_spark_escalates_to_wonder(spark_and_wonder):
+    from app.channels.formatting import tools_footer
+    calls = spark_and_wonder(_verdict_json(risk="WASPADA", category="lainnya", confidence=0.55, alert_guardian=False),
+                             _verdict_json(risk="BAHAYA", category="lowongan_kerja", confidence=0.9))
+    r = orchestrator.analyze(Input(type="text", text="Kerja part time like video, deposit dulu 200rb"))
+    assert calls == ["meta", "wonder"]
+    assert r.verdict.risk == "BAHAYA" and r.provider == "wonder" and r.model == "muse-wonder-1.0"
+    assert r.escalation == {"reason": "low_confidence",
+                            "spark": {"risk": "WASPADA", "category": "lainnya", "confidence": 0.55},
+                            "wonder": {"risk": "BAHAYA", "category": "lowongan_kerja", "confidence": 0.9}}
+    assert "Muse Spark → Muse Wonder (cek ulang)" in tools_footer(r)
+    assert orchestrator.details(r)["escalation"]["spark"]["risk"] == "WASPADA"
+
+
+def test_wonder_failure_keeps_spark_verdict(spark_and_wonder):
+    import httpx
+    from openai import APITimeoutError
+    calls = spark_and_wonder(_verdict_json(risk="WASPADA", category="lainnya", confidence=0.5, alert_guardian=False),
+                             wonder_exc=APITimeoutError(request=httpx.Request("POST", "http://x")))
+    r = orchestrator.analyze(Input(type="text", text="halo bu"))
+    assert calls == ["meta", "wonder"] and r.verdict.risk == "WASPADA" and r.provider == "meta"
+    assert r.escalation["wonder"] is None

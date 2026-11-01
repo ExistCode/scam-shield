@@ -101,4 +101,5 @@ class AnalysisResult:
     model_risk: str | None = None  # what the model said before our safety floors
     overrides: list[dict] = field(default_factory=list)  # [{"rule", "field", "from", "to"}]
     image_mode: str | None = None  # "single_call" | "two_step"
+    escalation: dict | None = None  # Muse Wonder second opinion: {"spark": {...}, "wonder": {...} | None}
     qris_precheck: dict | None = None  # local QR scan of an image; the model reads it via decode_qris

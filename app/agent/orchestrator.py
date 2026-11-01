@@ -445,6 +445,8 @@ def details(result: AnalysisResult) -> dict:
     flags = [f for out in result.tool_outputs.get("check_link", []) for f in out.get("flags", [])]
     if flags:
         d["link_flags"] = sorted(set(flags))
+    if result.escalation:
+        d["escalation"] = result.escalation
     if result.tool_outputs.get("aduannomor"):
         d["aduannomor"] = result.tool_outputs["aduannomor"]
     return d
@@ -478,27 +480,48 @@ def analyze(inp: Input, provider_name: str | None = None) -> AnalysisResult:
             result.image_mode = "two_step"
         return text_message(*described)
 
+    def run(provider: Provider) -> Verdict | None:
+        if is_image and provider.supports_images:
+            try:
+                v = _run_model(provider, inp, _multimodal_message(inp, text, context), result)
+                result.image_mode = "single_call"
+                if "muse_vision" not in result.tools_used:
+                    result.tools_used.append("muse_vision")
+                return v
+            except BadRequestError as exc:
+                log.warning("image in verdict call rejected (%s); falling back to describe_image", exc)
+                return _run_model(provider, inp, two_step(), result)
+        return _run_model(provider, inp, two_step() if is_image else text_message(text, context), result)
+
     verdict: Verdict | None = None
     for name in filter(None, [primary, fallback_name(primary)]):
         try:
             provider = get_provider(name)
-            if is_image and provider.supports_images:
-                try:
-                    verdict = _run_model(provider, inp, _multimodal_message(inp, text, context), result)
-                    result.image_mode = "single_call"
-                    if "muse_vision" not in result.tools_used:
-                        result.tools_used.append("muse_vision")
-                except BadRequestError as exc:
-                    log.warning("image in verdict call rejected (%s); falling back to describe_image", exc)
-                    verdict = _run_model(provider, inp, two_step(), result)
-            else:
-                verdict = _run_model(provider, inp, two_step() if is_image else text_message(text, context), result)
+            verdict = run(provider)
             result.provider, result.model = provider.name, provider.model
             if verdict:
                 break
         except (APIError, RuntimeError) as exc:
             log.error("provider %s failed: %s", name, exc)
             continue
+
+    # Muse Wonder escalation: when Spark is unsure (or couldn't answer), ask the bigger model once.
+    if result.provider == "meta" and settings.wonder_threshold > 0 and (
+            verdict is None or verdict.confidence < settings.wonder_threshold):
+        spark = ({"risk": verdict.risk, "category": verdict.category, "confidence": verdict.confidence}
+                 if verdict else None)
+        result.escalation = {"reason": "low_confidence" if verdict else "no_verdict", "spark": spark, "wonder": None}
+        try:
+            wonder = get_provider("wonder")
+            v2 = run(wonder)
+            if v2:
+                result.escalation["wonder"] = {"risk": v2.risk, "category": v2.category, "confidence": v2.confidence}
+                verdict = v2
+                result.provider, result.model = wonder.name, wonder.model
+                if "muse_wonder" not in result.tools_used:
+                    result.tools_used.append("muse_wonder")
+        except Exception as exc:  # Wonder is an extra: keep Spark's verdict
+            log.warning("muse wonder escalation failed: %s", exc)
 
     result.verdict = apply_safety(verdict or FALLBACK_VERDICT, inp, result)
     try:
