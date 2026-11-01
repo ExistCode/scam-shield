@@ -389,6 +389,10 @@ live = pytest.mark.skipif(not (os.environ.get("RUN_LIVE") and os.environ.get("ME
                           reason="set RUN_LIVE=1 and META_API_KEY to run against Muse Spark")
 
 
+_OWNER_CLAIM = re.compile(r"(?i)(pemilik nomor|nomor (ini|itu|tersebut) (milik|terdaftar|berasal|dari daerah)|"
+                          r"\b(telkomsel|indosat|smartfren)\b)")
+
+
 @live
 @pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
 def test_live_matrix(case):
@@ -398,7 +402,8 @@ def test_live_matrix(case):
         assert not orchestrator._SOFTENER.search(r.verdict.reply_text), r.verdict.reply_text
         assert "pintar" not in r.verdict.reply_text.lower(), r.verdict.reply_text
     out = format_reply(r.verdict)
-    assert contacts.unofficial_numbers(out) == [], out
+    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == [], out
+    assert not _OWNER_CLAIM.search(out), out
     said = out.lower()
     print(f"\n{case['id']}: {r.verdict.risk}/{r.verdict.category} conf={r.verdict.confidence:.2f} "
           f"tools={r.tools_used} {r.latency_ms}ms overrides={[o['rule'] for o in r.overrides]}\n  {r.verdict.reply_text}"
@@ -415,7 +420,8 @@ IMAGE_CASES = [
     ("qris_kotak_infaq.png", "Ini QRIS di kotak infaq masjid, mau sedekah", {"WASPADA", "BAHAYA"}),
     ("toko_online_palsu_chat.png", "Bu ini promo kulkas murah, beli ga ya", {"BAHAYA", "WASPADA"}),
 ]
-IMAGE_MUST_MENTION = {"toko_online_palsu_chat.png": "transfer", "qris_kotak_infaq.png": "toko pulsa jaya|nama"}
+IMAGE_MUST_MENTION = {"toko_online_palsu_chat.png": "transfer",
+                      "resi_palsu_chat.png": r"laporkan nomor 0857-2231-0098 di aduannomor\.id", "qris_kotak_infaq.png": "toko pulsa jaya|nama"}
 
 
 @live
@@ -426,7 +432,8 @@ def test_live_images(fname, caption, allowed):
         pytest.skip("run: python -m tests.manual.make_assets")
     r = orchestrator.analyze(Input(type="image", text=caption, media_bytes=path.read_bytes(), mime="image/png"))
     out = format_reply(r.verdict)
-    assert contacts.unofficial_numbers(out) == [], out
+    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == [], out
+    assert not _OWNER_CLAIM.search(out), out
     said = out.lower()
     print(f"\n{fname}: {r.verdict.risk}/{r.verdict.category} muse={r.model_risk} mode={r.image_mode} "
           f"tools={r.tools_used} {r.latency_ms}ms\n  {r.verdict.reason}\n  steps: {r.verdict.next_steps}")
@@ -517,10 +524,55 @@ def test_investment_and_pinjol_get_ojk(fake):
         assert "157" in out and "081-157-157-157" in out
 
 
-def test_scam_phone_number_gets_aduannomor(fake):
-    fake([_resp(_verdict_json(category="hadiah_palsu", scam_type="other"))])
-    r = orchestrator.analyze(Input(type="text", text="Menang undian! Hubungi admin WA 0857-1122-3344"))
-    assert "https://aduannomor.id" in format_reply(r.verdict)
+REPORT = "Laporkan nomor {} di aduannomor.id (situs resmi Komdigi)."
+
+
+@pytest.mark.parametrize("risk", ["BAHAYA", "WASPADA"])
+def test_scam_number_in_text_gets_report_step(fake, risk):
+    fake([_resp(_verdict_json(risk=risk, category="hadiah_palsu", scam_type="other",
+                              next_steps=["Jangan bayar apa pun.", "Abaikan pesannya.", "Blokir nomornya."]))])
+    r = orchestrator.analyze(Input(type="text", text="Menang undian! Hubungi admin WA +62 857-1122-3344"))
+    assert r.verdict.next_steps[-1] == REPORT.format("0857-1122-3344")  # +62 normalized to 08xx
+    assert len(r.verdict.next_steps) == 4  # the model's 3 steps are kept
+    out = format_reply(r.verdict)
+    assert "4. Laporkan nomor 0857-1122-3344 di aduannomor.id (situs resmi Komdigi)." in out
+    assert contacts.unofficial_numbers(out, r.verdict.scam_phone_numbers) == []
+
+
+def test_aman_never_gets_report_step(fake):
+    fake([_resp(_verdict_json(risk="AMAN", category="lainnya", confidence=0.9, alert_guardian=False,
+                              reply_text="Aman kok.", scam_phone_numbers=["081234567890"]))])
+    r = orchestrator.analyze(Input(type="text", text="Saya driver GoFood, nomor saya 0812-3456-7890, pesanan di depan"))
+    assert r.verdict.scam_phone_numbers == [] and "aduannomor" not in format_reply(r.verdict)
+
+
+def test_model_number_must_appear_in_text(fake):
+    # A number the model "saw" that isn't in the forwarded text is not reported (no hallucinated numbers).
+    fake([_resp(_verdict_json(scam_phone_numbers=["0899-9999-0000", "0857 1122 3344"]))])
+    r = orchestrator.analyze(Input(type="text", text="CS BCA: kirim OTP ke WA 0857 1122 3344"))
+    assert r.verdict.scam_phone_numbers == ["0857-1122-3344"]
+
+
+def test_screenshot_number_comes_from_model(fake):
+    p = fake([_resp(_verdict_json(category="kurir_apk", scam_type="other", scam_phone_numbers=["+62 857-2231-0098"]))])
+    p.supports_images = True
+    r = orchestrator.analyze(Input(type="image", media_bytes=b"png", mime="image/png"))
+    assert r.verdict.next_steps[-1] == REPORT.format("0857-2231-0098")
+
+
+def test_voice_transcript_number(fake, monkeypatch):
+    monkeypatch.setattr(orchestrator.transcribe, "transcribe_audio",
+                        lambda b, m=None: {"transcript": "Ini dari Polda, hubungi penyidik di nomor 0812 7777 6666 sekarang"})
+    fake([_resp(_verdict_json(category="aparat_palsu", scam_type="fake_police"))])
+    r = orchestrator.analyze(Input(type="audio", media_bytes=b"ogg", mime="audio/ogg"))
+    assert REPORT.format("0812-7777-6666") in r.verdict.next_steps
+
+
+def test_report_step_never_claims_owner_or_location():
+    step = contacts.report_step(["0857-1122-3344"])
+    assert not re.search(r"(?i)milik|pemilik|atas nama|lokasi|daerah|kota|telkomsel|indosat|\bxl\b|smartfren", step)
+    assert contacts.normalize_phone("6285711223344") == "0857-1122-3344"
+    assert contacts.normalize_phone("1500888") is None and contacts.normalize_phone("0211234567") is None
 
 
 def test_aman_has_no_contacts(fake):
@@ -550,7 +602,7 @@ def test_no_number_outside_contacts_ever_reaches_the_reply(fake, invented):
 
 def test_contacts_map_only_has_verified_entries():
     assert contacts.ALLOWED_NUMBERS == {"110", "157", "081157157157", "1500888"}
-    sites = {c["contact"] for cs in contacts.CONTACTS_BY_TYPE.values() for c in cs if c["contact"].startswith("http")}
+    sites = {c["contact"] for c in contacts.ALL_CONTACTS if c["contact"].startswith("http")}
     assert sites == {"https://iasc.ojk.go.id", "https://aduannomor.id"}
 
 

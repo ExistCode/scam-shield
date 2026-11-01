@@ -55,8 +55,9 @@ CONTACTS_BY_TYPE: dict[str, list[dict]] = {
     "investment": [OJK],
     "pinjol": [OJK],
     "money_sent": [HALO_BCA, IASC],  # transfer / OTP / install already happened: bank first, then IASC
-    "scam_phone_number": [ADUAN_NOMOR],
 }
+# Scammer phone numbers get their own numbered step instead of a contact line: see report_step().
+ALL_CONTACTS = [POLICE, IASC, OJK, ADUAN_NOMOR, HALO_BCA]
 
 # Fallback when the model says scam_type="other" but the category is specific.
 _TYPE_FROM_CATEGORY = {
@@ -74,8 +75,8 @@ def resolve_type(scam_type: str | None, category: str | None) -> str:
     return _TYPE_FROM_CATEGORY.get(category or "", "other")
 
 
-def contacts_for(scam_type: str, money_sent: bool = False, scam_phone: bool = False) -> list[dict]:
-    keys = (["money_sent"] if money_sent else []) + [scam_type] + (["scam_phone_number"] if scam_phone else [])
+def contacts_for(scam_type: str, money_sent: bool = False) -> list[dict]:
+    keys = (["money_sent"] if money_sent else []) + [scam_type]
     out: list[dict] = []
     for key in keys:
         for c in CONTACTS_BY_TYPE.get(key, []):
@@ -99,7 +100,7 @@ def _digits(s: str) -> str:
 
 ALLOWED_NUMBERS = frozenset(
     _digits(part)
-    for c in (POLICE, IASC, OJK, ADUAN_NOMOR, HALO_BCA)
+    for c in ALL_CONTACTS
     for part in re.findall(r"\+?\d[\d\- ]*\d", c["contact"])
 )
 
@@ -126,10 +127,31 @@ def _is_contact_number(text: str, m: re.Match) -> bool:
     return False
 
 
-def unofficial_numbers(text: str) -> list[str]:
-    """Contact-like numbers in `text` that are not in this file."""
+def unofficial_numbers(text: str, also_allowed: list[str] | tuple = ()) -> list[str]:
+    """Contact-like numbers in `text` that are not in this file (nor in `also_allowed`, e.g. the scammer
+    numbers we tell the user to report)."""
+    allowed = ALLOWED_NUMBERS | {_digits(n) for n in also_allowed}
     return [m.group(0) for m in _NUM.finditer(text or "")
-            if _is_contact_number(text, m) and _digits(m.group(0)) not in ALLOWED_NUMBERS]
+            if _is_contact_number(text, m) and _digits(m.group(0)) not in allowed]
+
+
+# --------------------------------------------------------------------------- scammer numbers -> aduannomor.id
+
+def normalize_phone(raw: str) -> str | None:
+    """'+62 857-1122-3344' / '6285711223344' / '0857 1122 3344' -> '0857-1122-3344' (Indonesian mobile only)."""
+    d = re.sub(r"\D", "", raw or "")
+    if d.startswith("62"):
+        d = "0" + d[2:]
+    elif d.startswith("8"):
+        d = "0" + d
+    if not re.fullmatch(r"08\d{8,11}", d) or d in ALLOWED_NUMBERS:
+        return None
+    return "-".join([d[:4], d[4:8], d[8:]])
+
+
+def report_step(numbers: list[str]) -> str:
+    """The step shown for scammer numbers. Says nothing about who owns the number or where it's from."""
+    return f"Laporkan nomor {', '.join(numbers)} di aduannomor.id (situs resmi Komdigi)."
 
 
 def scrub_numbers(text: str) -> str:

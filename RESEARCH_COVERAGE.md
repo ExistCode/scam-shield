@@ -37,7 +37,7 @@ All contacts live in [`app/agent/contacts.py`](app/agent/contacts.py). **The mod
 | `fake_police`, `impersonation` | Polisi **110** (plus the money-sent contacts if a transfer happened) |
 | `bank_otp`, or `money_sent` for any type (incl. "aku sudah transfer" follow-ups) | Halo BCA **1500888** (other banks: number on the back of the ATM card), then **https://iasc.ojk.go.id**, ideally within 12 hours so funds can be blocked |
 | `investment`, `pinjol` | Kontak OJK **157** / WA **081-157-157-157** |
-| A phone number in a BAHAYA message | **https://aduannomor.id** |
+| A scammer phone number in a BAHAYA/WASPADA text, screenshot or voice note | Extra step **"Laporkan nomor 0857-xxxx-xxxx di aduannomor.id (situs resmi Komdigi)"**. Numbers are normalized from +62/62/08 to 08xx; in text and transcripts they must actually appear there; on screenshots Muse reads them. The bot never says who owns a number or where it's from |
 
 AMAN verdicts get no contacts.
 

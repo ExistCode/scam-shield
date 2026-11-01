@@ -2,7 +2,7 @@
 
 Used to point the parent at the right official channel:
   account number -> flagged to the model (transfer to a personal account is a red flag)
-  phone number   -> aduannomor.id added by code when the verdict is BAHAYA (see app/agent/contacts.py)
+  phone number   -> "Laporkan nomor ... di aduannomor.id" step on BAHAYA/WASPADA (see orchestrator._scam_numbers)
 """
 from __future__ import annotations
 

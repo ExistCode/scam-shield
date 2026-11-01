@@ -24,6 +24,8 @@ class Verdict(BaseModel):
     # The model only names the type; the code picks contacts from app/agent/contacts.py.
     scam_type: ScamType = "other"
     money_sent: bool = False  # content shows the parent already transferred / sent OTP / installed
+    # Numbers the scammer uses, as the model read them (text, screenshot, voice). Code verifies/normalizes.
+    scam_phone_numbers: list[str] = Field(default_factory=list)
     contacts: list[dict] = Field(default_factory=list)  # filled by code, never by the model
 
 
@@ -32,7 +34,7 @@ VERDICT_JSON_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "required": ["risk", "category", "confidence", "reason", "next_steps", "alert_guardian", "reply_text",
-                 "scam_type", "money_sent"],
+                 "scam_type", "money_sent", "scam_phone_numbers"],
     "properties": {
         "risk": {"type": "string", "enum": ["AMAN", "WASPADA", "BAHAYA"]},
         "category": {
@@ -49,6 +51,7 @@ VERDICT_JSON_SCHEMA = {
         "reply_text": {"type": "string"},
         "scam_type": {"type": "string", "enum": SCAM_TYPES},
         "money_sent": {"type": "boolean"},
+        "scam_phone_numbers": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
     },
 }
 

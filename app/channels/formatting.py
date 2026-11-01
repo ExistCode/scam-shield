@@ -39,7 +39,7 @@ def format_reply(v: Verdict, guardian: str = "", footer: str = "", profile: dict
     """Emoji verdict line, one line of why, 2-3 numbered actions, official contacts, guardian line."""
     say = lambda t: persona.address((t or "").strip(), profile)  # noqa: E731
     lines = [f"{RISK_HEADER[v.risk]} · {say(v.reply_text)}", say(v.reason), ""]
-    lines += [f"{i}. {say(s)}" for i, s in enumerate(v.next_steps[:3], 1)]
+    lines += [f"{i}. {say(s)}" for i, s in enumerate(v.next_steps[:4], 1)]  # 3 from Muse + report step
     if v.contacts:
         lines += [format_contacts(v.contacts)]
     if guardian:

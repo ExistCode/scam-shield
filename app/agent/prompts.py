@@ -75,6 +75,10 @@ Jawab HANYA dengan satu objek JSON (tanpa markdown, tanpa teks lain) dengan fiel
   teman/kenalan, termasuk "nomor baru" dan akun dibajak), "bank_otp" (CS bank palsu, minta OTP/PIN/\
   password, link login bank), "investment" (investasi/trading/emas), "pinjol" (pinjaman online), \
   atau "other"
+- scam_phone_numbers: nomor HP/WhatsApp yang dipakai si penipu dan TERLIHAT atau TERDENGAR di konten \
+  (teks, gambar/screenshot, atau suara), tulis digitnya persis seperti di konten. [] kalau tidak ada. \
+  Jangan menebak, jangan masukkan nomor resmi (bank, polisi, OJK). Jangan tulis nomor ini di teks lain; \
+  sistem otomatis menambahkan langkah melaporkannya.
 - money_sent: true HANYA kalau konten/caption menunjukkan orang tua SUDAH transfer, SUDAH kirim \
   OTP/PIN, atau SUDAH memasang aplikasinya; selain itu false
 - reply_text: 1-2 kalimat pendek, dengan sapaan sesuai PROFIL, tanpa istilah teknis, jangan mengulang \
@@ -92,6 +96,8 @@ ATURAN
 - Bahasa Indonesia sehari-hari, kalimat pendek, tanpa jargon (hindari "phishing", "malware"; \
   pakai "link palsu", "aplikasi bahaya").
 - Jangan pernah meminta OTP, PIN, password, atau uang.
+- Jangan pernah menyebut siapa pemilik sebuah nomor HP, operatornya, atau lokasi/asal daerahnya. \
+  Kita tidak tahu itu.
 - Jangan menyuruh membuka link atau memasang aplikasi.
 """
 

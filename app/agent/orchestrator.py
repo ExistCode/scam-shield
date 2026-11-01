@@ -322,11 +322,41 @@ def apply_safety(verdict: Verdict, inp: Input, result: AnalysisResult) -> Verdic
 
     v.scam_type = contacts.resolve_type(v.scam_type, v.category)
     if v.risk == "AMAN":
-        v.contacts = []
+        v.contacts, v.scam_phone_numbers = [], []
     else:
-        scam_phone = v.risk == "BAHAYA" and bool(identifiers.extract_phones(result.extracted_text or inp.text or ""))
-        v.contacts = contacts.contacts_for(v.scam_type, money_sent=v.money_sent, scam_phone=scam_phone)
+        v.contacts = contacts.contacts_for(v.scam_type, money_sent=v.money_sent)
+        numbers = _scam_numbers(inp, result, verdict.scam_phone_numbers)
+        v.scam_phone_numbers = numbers
+        if numbers:
+            steps = [s for s in v.next_steps if "aduannomor" not in s.lower()][:3]
+            v.next_steps = steps + [contacts.report_step(numbers)]
+            result.overrides.append({"rule": "lapor_nomor_penipu", "field": "next_steps", "to": numbers})
     return v
+
+
+def _scam_numbers(inp: Input, result: AnalysisResult, from_model: list[str]) -> list[str]:
+    """Scammer phone numbers to report, normalized to 08xx-xxxx-xxxx.
+
+    Text / transcript: numbers found in it by regex, plus any the model listed that really appear in it.
+    Screenshot: the model is the only one reading the image, so its numbers are used (format-checked).
+    """
+    source = " ".join(filter(None, [result.extracted_text, inp.text]))
+    source_digits = re.sub(r"\D", "", source)
+    found = list(identifiers.extract_phones(source))
+    for raw in from_model or []:
+        n = contacts.normalize_phone(str(raw))
+        if not n:
+            continue
+        local = n.replace("-", "")
+        in_source = local in source_digits or ("62" + local[1:]) in source_digits
+        if inp.type == "image" or in_source:
+            found.append(n)
+    out: list[str] = []
+    for raw in found:
+        n = contacts.normalize_phone(raw)
+        if n and n not in out:
+            out.append(n)
+    return out[:3]
 
 
 _INSTALLED = re.compile(r"(?i)terlanjur|sudah\s+(di|ter)?(pasang|install|instal)|terpasang|ter-?install")

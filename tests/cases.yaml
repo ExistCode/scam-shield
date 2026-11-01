@@ -107,6 +107,7 @@
   type: text
   text: "SELAMAT! Nomor Anda memenangkan undian Rp100 juta dari BRI. Hubungi admin di WA 0857-1122-3344 dan bayar pajak hadiah Rp1.500.000 terlebih dahulu."
   expected: BAHAYA
+  must_mention: ["laporkan nomor 0857-1122-3344 di aduannomor\\.id \\(situs resmi komdigi\\)"]
 - id: pinjol
   type: text
   text: "Pinjaman cair 10 jt dalam 5 menit tanpa BI checking! Cukup KTP. Bayar biaya admin Rp350rb dulu, dana langsung masuk. Daftar: http://pinjaman-cair-kilat.online"
