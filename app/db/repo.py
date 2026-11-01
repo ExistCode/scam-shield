@@ -134,9 +134,29 @@ def last_case_for(user_id: int, within: timedelta) -> dict | None:
         if not row:
             return None
         case, v = row
-        return {"case_id": case.id, "input_text": case.input_text, "risk": v.risk, "category": v.category,
-                "reason": v.reason, "next_steps": v.next_steps or [],
+        return {"case_id": case.id, "user_id": case.user_id, "input_text": case.input_text, "risk": v.risk,
+                "category": v.category, "reason": v.reason, "next_steps": v.next_steps or [],
                 "scam_type": (v.details or {}).get("scam_type")}
+
+
+def guardian_status(parent_id: int | None, within: timedelta = timedelta(minutes=30)) -> dict:
+    """What actually happened with guardian alerts, for follow-up answers ("udah dikabarin Hans?").
+    {"names": [...registered guardians], "alerted_minutes_ago": int | None}"""
+    if parent_id is None:
+        return {"names": [], "alerted_minutes_ago": None}
+    fam = {c.get("user_id"): c.get("name") for c in get_profile(parent_id)["contacts"]}
+    names = [fam.get(g.id) or (g.name or "wali").split(" (@")[0] for g in active_guardians(parent_id)]
+    since = datetime.now(timezone.utc) - within
+    with get_session() as s:
+        last = s.scalar(
+            select(VerdictRow.created_at).join(Case, Case.id == VerdictRow.case_id)
+            .where(Case.user_id == parent_id, VerdictRow.guardian_alerted.is_(True), VerdictRow.created_at >= since)
+            .order_by(VerdictRow.created_at.desc()).limit(1))
+    minutes = None
+    if last is not None:
+        last = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+        minutes = max(0, int((datetime.now(timezone.utc) - last).total_seconds() // 60))
+    return {"names": names, "alerted_minutes_ago": minutes}
 
 
 def mark_alerted(case_id: int) -> None:

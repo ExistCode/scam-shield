@@ -73,6 +73,17 @@ def push(web_id: str, text: str) -> None:
         del box[:-300]
 
 
+def push_out(session: str, cid: str, req: "SendReq") -> None:
+    """Remember what the parent sent (text / file name / media kind, never the media itself), so the page can
+    rebuild both phones after a reload."""
+    with _lock:
+        box = _outbox[session]
+        box.append({"id": next(_seq), "to": "parent", "out": True, "cid": cid, "type": req.type,
+                    "text": (req.text or "")[:4000], "filename": req.filename, "forwarded": req.forwarded,
+                    "ts": time.time()})
+        del box[:-300]
+
+
 def _pid(session: str) -> str:
     return f"{session}:parent"
 
@@ -107,6 +118,7 @@ def send(req: SendReq, request: Request, background: BackgroundTasks,
     _check_access(request, x_analyze_token, per_min=30)
     if req.media_base64 and len(req.media_base64) > MAX_MEDIA * 4 // 3 + 64:
         raise HTTPException(413, "media too large")
+    push_out(req.session, req.id, req)
     background.add_task(process, req)
     return {"ok": True}
 

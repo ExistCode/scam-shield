@@ -27,6 +27,8 @@ MAX_FOLLOWUP_CHARS = 300  # longer than this is almost certainly pasted content 
 _PROMPT = """\
 Kamu adalah "Ronda", seperti anak atau keluarga dekat yang sayang, membantu orang tua di Indonesia soal penipuan.
 Beberapa menit lalu kamu sudah memberi penilaian atas pesan yang mereka teruskan (lihat KASUS_TERAKHIR).
+STATUS_WALI adalah fakta dari sistem soal keluarga/wali. Kalau ditanya soal wali atau keluarga ("udah dikabarin?"), \
+jawab sesuai STATUS_WALI persis; jangan mengarang.
 Sekarang mereka mengirim PESAN_BARU.
 
 {persona}
@@ -81,6 +83,23 @@ def looks_like_new_content(text: str) -> bool:
     return len(text) > MAX_FOLLOWUP_CHARS or bool(extract_urls(text))
 
 
+def _guardian_line(last_case: dict) -> str:
+    """The real guardian-alert status, so a question like "udah dikabarin Hans?" gets a true answer."""
+    from app.db import repo  # local import: repo imports the agent
+
+    try:
+        st = repo.guardian_status(last_case.get("user_id"))
+    except Exception:
+        return "tidak diketahui (jangan mengarang; bilang saja telepon wali langsung)"
+    names = " dan ".join(st["names"])
+    if not st["names"]:
+        return "belum ada wali/keluarga yang terdaftar"
+    if st["alerted_minutes_ago"] is not None:
+        ago = "barusan" if st["alerted_minutes_ago"] < 1 else f"{st['alerted_minutes_ago']} menit lalu"
+        return f"{names} SUDAH dikabari ({ago})"
+    return f"{names} terdaftar sebagai wali, tapi belum dikabari (hanya dikabari kalau BAHAYA)"
+
+
 def answer(message: str, last_case: dict, profile: dict | None = None) -> FollowupAnswer | None:
     """Returns None on any failure (caller then runs the normal analysis)."""
     case_block = (
@@ -89,7 +108,8 @@ def answer(message: str, last_case: dict, profile: dict | None = None) -> Follow
         f"langkah: {'; '.join(last_case['next_steps'])}\n"
         f"isi pesan yang dicek (dipotong): {(last_case.get('input_text') or '')[:500]}"
     )
-    user = f"KASUS_TERAKHIR:\n{case_block}\n\nPESAN_BARU:\n{wrap_forwarded(message)}"
+    user = (f"KASUS_TERAKHIR:\n{case_block}\n\nSTATUS_WALI: {_guardian_line(last_case)}\n\n"
+            f"PESAN_BARU:\n{wrap_forwarded(message)}")
     try:
         resp = get_provider().chat(
             [{"role": "system", "content": build_prompt(profile)}, {"role": "user", "content": user}],

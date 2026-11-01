@@ -17,7 +17,8 @@ def _client(monkeypatch):
 
 
 def _inbox(c, session, who):
-    return [m["text"] for m in c.get(f"/demo/inbox?session={session}").json()["messages"] if m["to"].startswith(who)]
+    return [m["text"] for m in c.get(f"/demo/inbox?session={session}").json()["messages"]
+            if m["to"].startswith(who) and not m.get("out")]
 
 
 def test_onboarding_link_verdict_and_guardian_phone(monkeypatch):
@@ -60,3 +61,18 @@ def test_assets_are_whitelisted():
     assert c.get("/demo/assets/..%2F..%2F..%2F.env").status_code == 404
     assert c.get("/demo/assets/Cek_Resi_JNT.apk").status_code == 404
     assert c.get("/demo/inbox?session=bad").status_code == 400
+
+
+def test_inbox_keeps_parent_messages_for_reload(monkeypatch):
+    """After a page reload the demo replays the session, including what Mama sent (no media stored)."""
+    c = _client(monkeypatch)
+    s = "sessionCCCC3"
+    c.post("/demo/setup", json={"session": s})
+    c.post("/demo/send", json={"session": s, "id": "m1", "type": "document", "text": "Kami harap kehadirannya",
+                               "filename": "Undangan.apk", "forwarded": True})
+    msgs = c.get(f"/demo/inbox?session={s}").json()["messages"]
+    out = [m for m in msgs if m.get("out")]
+    assert out == [{**out[0], "cid": "m1", "type": "document", "text": "Kami harap kehadirannya",
+                    "filename": "Undangan.apk", "forwarded": True, "to": "parent"}]
+    assert "media_base64" not in out[0]
+    assert any("Kayaknya penipuan" in m["text"] for m in msgs if m["to"].startswith("g:"))  # Hans's alert is kept too

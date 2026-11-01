@@ -352,3 +352,35 @@ def test_whatsapp_guardian_template_params(monkeypatch):
     whatsapp_sender.send_guardian_alert("6281200000000", "Hans", "Mama", BAHAYA)
     params = [p["text"] for p in posted[0]["template"]["components"][0]["parameters"]]
     assert params == ["Hans", "Mama", "file aplikasi (.apk) yang nyamar jadi resi paket atau undangan", "Mama"]
+
+
+def test_followup_knows_the_guardian_was_alerted(client, monkeypatch):
+    """"udah dikabarin Hans?" must get the true answer from the database, not a guess."""
+    from app.agent import followup
+    sent, prompts = [], []
+    monkeypatch.setattr(telegram_bot, "send_text", lambda chat_id, text, reply_to=None, **kw: sent.append((str(chat_id), text)))
+    monkeypatch.setattr(telegram_bot, "send_typing", lambda chat_id: None)
+    monkeypatch.setattr(telegram_bot, "bot_username", lambda: "RondaBot")
+    monkeypatch.setattr(telegram_webhook, "analyze_with_deadline", lambda inp: AnalysisResult(verdict=BAHAYA, provider="fake", model="fake"))
+    PARENT, CHILD = 5601001, 5601002
+    uid = iter(range(8000, 9000))
+
+    def post(chat_id, text, first="Sri", forwarded=False):
+        m = {"message_id": next(uid), "chat": {"id": chat_id, "type": "private"}, "from": {"id": chat_id, "first_name": first},
+             "text": text}
+        if forwarded:
+            m["forward_origin"] = {"type": "hidden_user"}
+        client.post("/telegram/webhook", json={"update_id": next(uid), "message": m},
+                    headers={"X-Telegram-Bot-Api-Secret-Token": "tg-secret"})
+
+    def chat(messages, tools=None, response_format=None, **kw):
+        prompts.append(messages[1]["content"])
+        msg = SimpleNamespace(content=json.dumps({"intent": "followup", "reply": "Udah kok.", "already_paid": False}))
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+
+    post(PARENT, "/daftar_wali anak")
+    post(CHILD, "/start " + sent[-1][1].split("?start=")[1].split()[0], first="Hans")
+    post(PARENT, "Paket tertahan, buka aplikasi ini", forwarded=True)   # BAHAYA -> Hans alerted
+    monkeypatch.setattr(followup, "get_provider", lambda name=None: SimpleNamespace(chat=chat))
+    post(PARENT, "udah dikabarin Hans belum?")
+    assert "STATUS_WALI: Hans SUDAH dikabari (barusan)" in prompts[-1]

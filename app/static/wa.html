@@ -301,10 +301,11 @@ function waFormat(text) {
 let session = localStorage.getItem("cd_wa_session") || newSession();
 function newSession() {
   const s = "s" + crypto.getRandomValues(new Uint32Array(3)).join("").slice(0, 20);
-  localStorage.setItem("cd_wa_session", s); localStorage.setItem("cd_wa_after", "0");
+  localStorage.setItem("cd_wa_session", s);
   return s;
 }
-let after = +(localStorage.getItem("cd_wa_after") || 0);
+let after = 0;  // a fresh page replays the whole session from the server, so a reload keeps both phones
+const sentHere = new Set();  // ids of messages this page already drew as outgoing bubbles
 const token = () => $("#token").value.trim();
 $("#token").value = localStorage.getItem("cekdulu_token") || "";
 $("#token").addEventListener("change", () => localStorage.setItem("cekdulu_token", token()));
@@ -337,14 +338,15 @@ function buildPhone(el, { name, guardian }) {
 const P = buildPhone($("#p-parent"), { name: "Ronda" });
 const G = buildPhone($("#p-guardian"), { name: "Ronda", guardian: true });
 
-function bubble(phone, side, html, { forwarded = false } = {}) {
+const hhmm = (ts) => new Date(ts * 1000).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(".", ":");
+function bubble(phone, side, html, { forwarded = false, time = null } = {}) {
   const cont = phone.lastSide === side;
   phone.lastSide = side;
   const m = document.createElement("div");
   m.className = `msg ${side}${cont ? " cont" : ""}`;
   const ticks = side === "out" ? `<svg viewBox="0 0 16 11" class="tick"><use href="#i-tick2"/></svg>` : "";
   m.innerHTML = (forwarded ? `<div class="fwd">${ico("fwd")} Diteruskan</div>` : "") + html +
-    `<span class="meta">${now()} ${ticks}</span>`;
+    `<span class="meta">${time || now()} ${ticks}</span>`;
   phone.chat.appendChild(m);
   phone.chat.scrollTop = phone.chat.scrollHeight;
   if (side === "out") phone.pendingTicks.push($(".tick", m));
@@ -599,7 +601,9 @@ async function post(path, body) {
 async function send(payload) {
   $("#err").textContent = "";
   try {
-    await post("/demo/send", { session, id: `m${Date.now()}${msgSeq++}`, ...payload });
+    const id = `m${Date.now()}${msgSeq++}`;
+    sentHere.add(id);
+    await post("/demo/send", { session, id, ...payload });
     setTimeout(() => { setTyping(P, true); if (currentView === "list") renderList(); }, 500);
   } catch (e) { $("#err").textContent = "Gagal kirim: " + e.message; }
 }
@@ -707,17 +711,35 @@ $("#fresh").addEventListener("click", () => {
 });
 
 // ------------------------------------------------------------------ inbox polling
-const WORKING = /^(🔎|🎧) Sedang /;
+const WORKING = /^(🔎|🎧) Sedang |^🎬 /;
+function replayOut(m) {
+  const kind = { image: "📷 Foto", audio: "🎤 Pesan suara", video: "🎥 Video" }[m.type];
+  let html = "";
+  if (m.type === "document") {
+    const ext = (m.filename || "file").split(".").pop().toUpperCase();
+    html = `<div class="doc"><div class="ico">${esc(ext)}</div><div><div class="dn">${esc(m.filename || "file")}</div>
+      <div class="ds">${esc(ext)}</div></div></div>`;
+  } else if (kind) {
+    html = `<div class="body"><i>${kind}</i></div>`;
+  }
+  if (m.text) html += textHtml(m.text);
+  const b = bubble(P, "out", html, { forwarded: m.forwarded, time: m.ts ? hhmm(m.ts) : null });
+  b.querySelector(".tick")?.classList.add("read");
+}
 async function poll() {
   try {
     const r = await fetch(`/demo/inbox?session=${session}&after=${after}`);
     if (r.ok) {
       const { messages } = await r.json();
       for (const m of messages) {
-        after = Math.max(after, m.id); localStorage.setItem("cd_wa_after", String(after));
+        after = Math.max(after, m.id);
+        if (m.out) {  // Mama's own message: draw it only when replaying (e.g. after a reload)
+          if (!sentHere.has(m.cid)) replayOut(m);
+          continue;
+        }
         const phone = m.to === "parent" ? P : G;
         markRead(phone);
-        bubble(phone, "in", textHtml(m.text));
+        bubble(phone, "in", textHtml(m.text), { time: m.ts ? hhmm(m.ts) : null });
         setTyping(phone, phone === P && WORKING.test(m.text));
         if (phone === P) noteRondaMessage(m.text);
         if (phone === G) setTyping(G, false);
