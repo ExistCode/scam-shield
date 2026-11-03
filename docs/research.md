@@ -1,4 +1,4 @@
-# Cek Dulu: Indonesian scam landscape, 2025–2026
+# Ronda: Indonesian scam landscape, 2025–2026
 
 Researched 1 Nov 2026 (WIB). All numbers come from IASC/OJK as quoted by the linked outlets. IASC counts are **cumulative since IASC launched (22 Nov 2024)**, not yearly. Example messages are illustrative, written by us from the described modus, and are not real quotes.
 
@@ -6,7 +6,7 @@ Researched 1 Nov 2026 (WIB). All numbers come from IASC/OJK as quoted by the lin
 
 The ranking uses IASC data to 31 Jul 2026 (reports + losses, [Kompas Bandung, 21 Aug 2026](https://bandung.kompas.com/read/2026/08/21/210922178/ojk-jabar-catat-131445-laporan-scam-tertinggi-di-indonesia)) and to 31 Aug 2026 (report counts only, [Detik, 27 Sep 2026](https://finance.detik.com/moneter/d-8681807/ratusan-ribu-rekening-diblokir-ini-modus-scam-paling-banyak-dipakai)). Ranks 6–10 come from the full top-10 to 30 Nov 2025 ([Kompas Money, 22 Dec 2025](https://money.kompas.com/read/2025/12/22/170332426/waspada-aneka-modus-scam-ini-dari-fake-call-hingga-belanja-online), [CNBC Indonesia, 18 Dec 2025](https://www.cnbcindonesia.com/tech/20251218063318-37-695229/10-modus-penipuan-terbanyak-di-ri-nomor-satu-banyak-yang-tak-sadar)).
 
-| # | Modus | Reports / loss | Example (illustrative) | Channel | Cek Dulu input | Targets |
+| # | Modus | Reports / loss | Example (illustrative) | Channel | Ronda input | Targets |
 |---|---|---|---|---|---|---|
 | 1 | **Belanja online** (fake seller) | 119,494 reports (Aug 2026); Rp1.78 T loss (Jul 2026) | "Promo cuci gudang! Kulkas 2 pintu cuma Rp1,2 jt, stok 3. Transfer DP ke rek pribadi admin ya kak" | Social media, marketplace, WA | text, screenshot, link | Mostly women and price-sensitive buyers (OJK, Kompas Dec 2025) |
 | 2 | **Fake call / impersonation** (bank, police, courier, family, officials) | 65,914 reports (Aug 2026); **Rp2.09 T, highest loss** (Jul 2026) | "Selamat siang Bu, saya dari BCA. Kartu Ibu terdeteksi transaksi mencurigakan, mohon sebutkan kode OTP untuk pemblokiran" | Phone, WA call/chat | voice note, text | Everyone, especially elderly |
@@ -35,7 +35,7 @@ The ranking uses IASC data to 31 Jul 2026 (reports + losses, [Kompas Bandung, 21
 
 - Komdigi's Deputy Minister Nezar Patria (Jul 2026) said many elderly people fall for AI scams that clone officials' or family members' voices. Scammers "type the text, then just play it back" ([Kompas, 2 Jul 2026](https://nasional.kompas.com/read/2026/07/02/20330831/komdigi-sebut-banyak-lansia-jadi-korban-scam-ai-yang-tiru-suara-pejabat)).
 - OJK had received **1,379 reports of AI-indicated fraud** by Jun 2026, including voice and face cloning and "AI robot trading" ([CNBC Indonesia, 7 Sep 2026](https://www.cnbcindonesia.com/market/20260907170046-17-765940/ribuan-warga-ri-ketipu-ai)).
-- Implication for Cek Dulu: **don't claim deepfake detection**. Instead, verify the request: urgency, a transfer to a personal account, an OTP request, or a "new number". Tell the user to hang up and call back on the old number.
+- Implication for Ronda: **don't claim deepfake detection**. Instead, verify the request: urgency, a transfer to a personal account, an OTP request, or a "new number". Tell the user to hang up and call back on the old number.
 - **Unconfirmed:** I found no official age breakdown of IASC victims. Don't cite a "% of victims are elderly" figure.
 
 ## 4. Official reporting channels (for the bot's next steps)
@@ -55,7 +55,7 @@ The ranking uses IASC data to 31 Jul 2026 (reports + losses, [Kompas Bandung, 21
 
 ## 5. Recommended demo and test coverage
 
-| Scam | Why | Cek Dulu feature |
+| Scam | Why | Ronda feature |
 |---|---|---|
 | **Fake call / family impersonation** ("Ma, ganti nomor", fake BCA CS) | Biggest loss (Rp2.09 T), hits parents, ties into the AI voice trend | Voice note → ASR → verdict, plus call-back advice and **guardian alert** |
 | **APK via WA** (wedding invite, courier) | Classic parent trap, and an instant **bahaya** verdict is easy to show | APK file detection + "already installed? turn off data, call 1500888" |

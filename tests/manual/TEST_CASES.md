@@ -21,7 +21,7 @@ Regenerate the files with `.venv/bin/python -m tests.manual.make_assets` (files 
 | 9 | Tampered QRIS sticker | `assets/qris_palsu_tempelan.png` + caption "Mau bayar di Warung Bu Sri, aman ga?" | 🟡/🔴 · qris_palsu | `decode_qris` → merchant **ANDI CELL** ≠ printed **WARUNG BU SRI** |
 | 10 | Voice note "aku kecelakaan" | `assets/voice_kecelakaan.ogg` | 🟡 WASPADA / 🔴 · minta_pulsa | `transcribe_audio`, plus `safe_word_check` question |
 
-**From scam_research.md (section 5 demo coverage):**
+**From docs/research.md (section 5 demo coverage):**
 
 | File | Caption | Expect |
 |---|---|---|

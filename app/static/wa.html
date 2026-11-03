@@ -376,7 +376,7 @@ function markRead(phone) { phone.pendingTicks.forEach((t) => t.classList.add("re
 
 // ------------------------------------------------------------------ Mama's phone: chat list -> contact chat -> forward to Ronda
 const DOC_MIME = "application/vnd.android.package-archive";
-// Every scam chat follows the wording documented in SCAM_WORDING.md (numbers, names, links are made up).
+// Every scam chat follows the wording documented in docs/SCAM_WORDING.md (numbers, names, links are made up).
 const CONTACTS_TEMPLATE = [
   { id: "ronda", name: "Ronda", ronda: true, pinned: true, time: "", preview: "Teruskan pesan yang mencurigakan ke sini 🛡️" },
   // APK lure inside a family group, sent by an unknown member (§2: "Kami harap kehadirannya" + invitation .apk)

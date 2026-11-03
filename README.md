@@ -1,25 +1,25 @@
-# Ronda: Scam & Hoax Checker for Indonesian Parents (Telegram + WhatsApp)
+# Ronda: Scam & Hoax Checker for Indonesian Parents, on Telegram (WhatsApp coming soon)
+
+**Try it:** message [@Ronda123_Bot](https://t.me/Ronda123_Bot) on Telegram, or watch the [demo video](https://youtu.be/y2GMMZTeeB0). Forward a suspicious message and get a plain Bahasa Indonesia verdict before anyone sends money.
 
 *Ronda* is the Indonesian neighbourhood night watch: neighbours taking turns to keep the kampung safe. This one keeps watch over your parents' chats.
 
 > Forward any suspicious message, screenshot, QRIS sticker, voice note or video call recording to the Ronda bot and get a plain Bahasa Indonesia verdict, the reason, and what to do next. If it's dangerous, your kid gets alerted too.
 
-**Try it:** the live demo runs on **Telegram**. The WhatsApp Cloud API adapter is fully built (webhook, signature check, alert template) and covered by tests, using the same agent core.
-
-Built for the Meta Global AI Developer Hackathon (Indie track). See [PLAN.md](PLAN.md) for the full design.
+Built for the Meta Global AI Developer Hackathon (Indie track). The WhatsApp Cloud API adapter is built and tested, not live yet.
 
 ## The problem
 
 Older Indonesian parents get fake courier APKs, "Ma, ini nomor baru aku" requests for pulsa, and fake bank CS chats every week. They're often unsure, too embarrassed to ask, and sometimes they just pay. Ronda works inside a chat app they already use: they **forward** the message. There's no app to install and no account to create.
 
-### Why it matters (sources in [scam_research.md](scam_research.md))
+### Why it matters (sources in [docs/research.md](docs/research.md))
 
 - **702,342 scam reports** to OJK's Indonesia Anti-Scam Centre (IASC) between its launch on 22 Nov 2024 and 30 Sep 2026. That's a cumulative total, not a yearly one. 702,833 accounts were blocked, and only Rp207 M has been returned so far ([Kontan, 5 Oct 2026](https://keuangan.kontan.co.id/news/iasc-terima-702342-laporan-kasus-penipuan-hingga-september-2026)).
 - **Speed is everything:** about 80% of victims report more than 12 hours after being scammed, while the money moves through 4 layers of accounts within minutes ([Detik, 29 Jun 2026](https://finance.detik.com/moneter/d-8552960/ojk-bongkar-modus-tipu-tipu-nasabah-hingga-bobol-rekening)). Ronda answers *before* the transfer and alerts family right away.
 - **Fake calls / impersonation cause the biggest losses** (Rp2.09 T to Jul 2026). Komdigi says many elderly people fall for AI-cloned voices of officials and family ([Kompas, 2 Jul 2026](https://nasional.kompas.com/read/2026/07/02/20330831/komdigi-sebut-banyak-lansia-jadi-korban-scam-ai-yang-tiru-suara-pejabat)). Ronda doesn't claim to detect deepfakes. It checks *what is being asked*: urgency, a transfer to a personal account, an OTP, a "new number".
 - Polda Metro Jaya warned about fake police video calls ("OTT kurir narkoba") in Oct 2025. Forward the recording or a voice note, and Ronda flags it as fake police and says to hang up and call 110.
 
-Coverage of every research item: [RESEARCH_COVERAGE.md](RESEARCH_COVERAGE.md).
+Coverage of every research item: [docs/RESEARCH_COVERAGE.md](docs/RESEARCH_COVERAGE.md). Wording sources: [docs/SCAM_WORDING.md](docs/SCAM_WORDING.md).
 
 ## How it works
 
@@ -64,9 +64,9 @@ Telegram / WhatsApp ─webhook─▶ FastAPI ─▶ "🔎 Sedang dicek…"
 
 ## Channels
 
-The agent core is channel-agnostic. There are two chat adapters plus the web test page:
+The agent core is channel-agnostic. The live channel is Telegram. The WhatsApp Cloud API adapter is built and tested, not live yet.
 
-| | WhatsApp | Telegram |
+| | WhatsApp (adapter built and tested, not live yet) | Telegram (live) |
 |---|---|---|
 | Endpoint | `/webhook` | `/telegram/webhook` |
 | Auth | `X-Hub-Signature-256` (app secret) | `X-Telegram-Bot-Api-Secret-Token` |
@@ -100,6 +100,8 @@ The plain-text WhatsApp phrases work too.
 
 ### WhatsApp commands (parent)
 
+The WhatsApp Cloud API adapter is built and tested, not live yet. These commands are covered by the adapter and its tests.
+
 | Command | What it does |
 |---|---|
 | *(forward anything)* | Check the message, photo, or voice note |
@@ -130,7 +132,7 @@ The plain-text WhatsApp phrases work too.
 - If SAM fails or finds nothing, the tool reads the full image.
 - `decode_qris` hints at it when the local scan misses a visible QR.
 - Live: Muse called it on its own for a small QRIS sticker in a 12 MP photo, and the crop decoded. |
-| **WhatsApp Cloud API** | Second channel: webhook, signature check, replies, `guardian_alert` utility template |
+| **WhatsApp Cloud API** | Adapter built and tested, not live yet: webhook, signature check, replies, `guardian_alert` utility template |
 
 Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure. The footer names the model that actually answered. `LLM_PROVIDER=fireworks` / `FIREWORKS_API_KEY` exist only as a dev-time fallback for API outages. The fallback is off unless that key is set (it isn't for the demo), and if it ever answers, the reply footer names the model with "(cadangan)".
 
@@ -150,7 +152,7 @@ Every verdict is produced by Muse Spark, or by Muse Wonder when Spark is unsure.
 - Press **H** to hide all controls while recording.
 - On a deployed server it needs the `ANALYZE_TOKEN` (field in the panel).
 
-Say in the video that this is a simulator of the chat flow. The live channels are Telegram and the WhatsApp Cloud API adapter.
+Say in the video that this is a simulator of the chat flow. The live channel is Telegram.
 
 ## Setup
 
@@ -187,9 +189,9 @@ RUN_LIVE=1 META_API_KEY=... .venv/bin/python -m pytest -k live -s  # ~40 cases i
 2. **+ New → Database → PostgreSQL** in the same project. On the app service, add the variable `DATABASE_URL=${{Postgres.DATABASE_URL}}`. Tables are created on startup, and new columns are added automatically.
 3. Add the secret variables (names below), including a random `ANALYZE_TOKEN` if you want the test page online. Then **Settings → Networking → Generate Domain**.
 4. Telegram: set `TELEGRAM_WEBHOOK_URL=https://<app>.up.railway.app/telegram/webhook` and a random `TELEGRAM_WEBHOOK_SECRET` (`openssl rand -hex 24`); the webhook is registered on startup. Check `/health`: `telegram_secret_check` and `analyze_locked` should both be `true`.
-5. WhatsApp: in the Meta app → WhatsApp → Configuration, set the callback URL to `https://<app>.up.railway.app/webhook` with your `WA_VERIFY_TOKEN`, then subscribe to `messages`.
+5. WhatsApp (optional, future): in the Meta app → WhatsApp → Configuration, set the callback URL to `https://<app>.up.railway.app/webhook` with your `WA_VERIFY_TOKEN`, then subscribe to `messages`. The adapter is built and tested; it is not live yet.
 
-Railway sets `RAILWAY_ENVIRONMENT_ID`, which makes the app **fail closed**: a missing webhook secret or app secret rejects requests instead of skipping the check. ffmpeg comes bundled via `imageio-ffmpeg`, so no system package is needed. (`render.yaml` is kept as an alternative.)
+Railway sets `RAILWAY_ENVIRONMENT_ID`, which makes the app **fail closed**: a missing webhook secret or app secret rejects requests instead of skipping the check. ffmpeg comes bundled via `imageio-ffmpeg`, so no system package is needed.
 
 ### Guardian alert template
 

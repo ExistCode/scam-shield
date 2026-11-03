@@ -12,7 +12,7 @@ def _env(name: str, default: str = "") -> str:
 
 
 def _database_url() -> str:
-    url = _env("DATABASE_URL", "sqlite:///./cekdulu.db")
+    url = _env("DATABASE_URL", "sqlite:///./ronda.db")
     # Render gives postgres://...; SQLAlchemy + psycopg3 wants postgresql+psycopg://
     if url.startswith("postgres://"):
         url = "postgresql+psycopg://" + url[len("postgres://"):]

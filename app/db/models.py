@@ -1,4 +1,4 @@
-"""Tables from PLAN.md section 6. No media blobs are ever stored."""
+"""Tables. No media blobs are ever stored."""
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text

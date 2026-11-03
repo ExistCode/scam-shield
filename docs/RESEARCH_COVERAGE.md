@@ -1,6 +1,6 @@
 # Research coverage
 
-How each item in [scam_research.md](scam_research.md) is handled in Ronda. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
+How each item in [research.md](research.md) is handled in Ronda. "Live test" means it's checked against the real Muse Spark API (`RUN_LIVE=1 pytest -k live`). The full run on 1 Nov 2026 passed **38/38**. After the contacts map was added, the text + image matrix (41 text cases incl. 9 false-positive controls and a "sudah transfer" case, plus 4 images) passed **45/45**, and no reply contained a number outside `contacts.py`.
 
 Real-world scammer wording, with sources, is in [SCAM_WORDING.md](SCAM_WORDING.md). It covers 9 more live cases (all pass): the BRI tariff letter, the "salah kirim kode" WhatsApp takeover, the wedding invitation and e-tilang APKs, vote links asking for a PIN, DANA Kaget, investment "mentor" groups, TikTok task jobs, and "aku menemukan kontakmu" openers.
 
@@ -32,7 +32,7 @@ In the README "Why it matters" section, with the research's caveat that IASC cou
 
 ## 4. Official reporting channels
 
-All contacts live in [`app/agent/contacts.py`](app/agent/contacts.py). **The model never writes a contact.** It outputs `scam_type` and `money_sent`, and the code appends the matching contacts. Any other phone, short-code or account number in model text is removed (rule `nomor_tidak_resmi_dihapus`), and so is any in follow-up answers. A test checks that no reply contains a number outside the file.
+All contacts live in [`app/agent/contacts.py`](../app/agent/contacts.py). **The model never writes a contact.** It outputs `scam_type` and `money_sent`, and the code appends the matching contacts. Any other phone, short-code or account number in model text is removed (rule `nomor_tidak_resmi_dihapus`), and so is any in follow-up answers. A test checks that no reply contains a number outside the file.
 
 | scam_type / situation | Contacts appended |
 |---|---|

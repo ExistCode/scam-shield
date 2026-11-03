@@ -1,4 +1,4 @@
-"""Verdict schema (PLAN.md section 7) plus the channel-free Input type."""
+"""Verdict schema plus the channel-free Input type."""
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -31,7 +31,7 @@ class Verdict(BaseModel):
     contacts: list[dict] = Field(default_factory=list)  # filled by code, never by the model
 
 
-# JSON schema sent as response_format (kept identical to PLAN.md).
+# JSON schema sent as response_format.
 VERDICT_JSON_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
