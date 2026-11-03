@@ -214,7 +214,7 @@ def _handle_followup(text: str, user, sender: str, mid: str, profile: dict | Non
     whatsapp_sender.send_text(sender, ans.reply, reply_to=mid)
     if ans.already_paid:
         notify.alert_urgent(user.id, _parent_label(user.name, sender), followup.urgent_verdict(last))
-    log.info("wa follow-up for case=%s already_paid=%s", last["case_id"], ans.already_paid)
+    log.info("wa follow-up for case=%s already_paid=%s model=%s", last["case_id"], ans.already_paid, ans.model)
     return True
 
 

@@ -76,6 +76,32 @@ class FollowupAnswer:
     intent: str
     reply: str
     already_paid: bool
+    model: str = ""  # which model wrote the reply (Muse Wonder for "already paid" emergencies)
+
+
+def _ask(provider, messages: list, timeout: float | None = None) -> dict:
+    extra = {"timeout": timeout} if timeout else {}
+    resp = provider.chat(messages, response_format={"type": "json_object"}, **extra)
+    raw = resp.choices[0].message.content or ""
+    m = re.search(r"\{.*\}", raw, re.S)
+    return json.loads(m.group(0) if m else raw)
+
+
+def _wonder_emergency(messages: list) -> dict | None:
+    """The parent says they already paid / sent a code / installed the app: the highest-stakes answer, so
+    MUSE_ESCALATION_MODEL (Muse Wonder) writes it. Any failure keeps Spark's answer."""
+    from app.config import settings
+
+    if not settings.wonder_model or settings.muse_model == settings.wonder_model:
+        return None
+    try:
+        data = _ask(get_provider("wonder"), messages, timeout=settings.wonder_video_timeout)
+    except Exception as exc:
+        log.warning("wonder emergency follow-up failed, keeping Spark's answer: %s", exc)
+        return None
+    if data.get("intent") != "followup" or not str(data.get("reply") or "").strip():
+        return None
+    return data
 
 
 def looks_like_new_content(text: str) -> bool:
@@ -110,17 +136,19 @@ def answer(message: str, last_case: dict, profile: dict | None = None) -> Follow
     )
     user = (f"KASUS_TERAKHIR:\n{case_block}\n\nSTATUS_WALI: {_guardian_line(last_case)}\n\n"
             f"PESAN_BARU:\n{wrap_forwarded(message)}")
+    messages = [{"role": "system", "content": build_prompt(profile)}, {"role": "user", "content": user}]
     try:
-        resp = get_provider().chat(
-            [{"role": "system", "content": build_prompt(profile)}, {"role": "user", "content": user}],
-            response_format={"type": "json_object"},
-        )
-        raw = resp.choices[0].message.content or ""
-        m = re.search(r"\{.*\}", raw, re.S)
-        data = json.loads(m.group(0) if m else raw)
+        primary = get_provider()
+        data = _ask(primary, messages)
     except Exception as exc:
         log.warning("follow-up call failed: %s", exc)
         return None
+    model = getattr(primary, "model", "")
+    if data.get("intent") == "followup" and data.get("already_paid"):
+        wonder = _wonder_emergency(messages)
+        if wonder:  # Wonder rewrites the emergency reply; "already paid" stays true (alerts already decided)
+            data = {**wonder, "already_paid": True}
+            model = getattr(get_provider("wonder"), "model", "muse-wonder")
     intent = data.get("intent")
     reply = str(data.get("reply") or "").strip()
     if intent not in ("followup", "new_check") or (intent == "followup" and not reply):
@@ -138,7 +166,7 @@ def answer(message: str, last_case: dict, profile: dict | None = None) -> Follow
             extra = []
         if extra:
             reply += "\n\n" + contacts.format_contacts(extra)
-    return FollowupAnswer(intent=intent, reply=reply, already_paid=already_paid)
+    return FollowupAnswer(intent=intent, reply=reply, already_paid=already_paid, model=model)
 
 
 def urgent_verdict(last_case: dict) -> Verdict:

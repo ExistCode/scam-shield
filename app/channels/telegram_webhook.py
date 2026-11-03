@@ -290,7 +290,7 @@ def _handle_followup(text: str, user, chat_id: int, mid: int, label: str, profil
     telegram_bot.send_text(chat_id, ans.reply, reply_to=mid)
     if ans.already_paid:
         notify.alert_urgent(user.id, label, followup.urgent_verdict(last))
-    log.info("tg follow-up for case=%s already_paid=%s", last["case_id"], ans.already_paid)
+    log.info("tg follow-up for case=%s already_paid=%s model=%s", last["case_id"], ans.already_paid, ans.model)
     return True
 
 

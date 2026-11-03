@@ -174,3 +174,50 @@ def test_live_personal_voice(text):
 def test_parse_panggilan_strict_after_a_verdict(text, expected):
     """Right after a verdict an answer to "mau aku panggil apa?" must not swallow follow-up questions."""
     assert persona.parse_panggilan(text, strict=True) == expected
+
+
+# --------------------------------------------------------------------------- "already paid" -> Muse Wonder
+
+def _fu_provider(name, model, payload, calls, fail=False):
+    def chat(messages, tools=None, response_format=None, timeout=None):
+        calls.append((name, timeout))
+        if fail:
+            raise TimeoutError("slow")
+        msg = SimpleNamespace(content=json.dumps(payload))
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg)])
+    return SimpleNamespace(chat=chat, name=name, model=model)
+
+
+LAST = {"case_id": 1, "user_id": None, "risk": "BAHAYA", "category": "cs_bank_palsu", "scam_type": "bank_otp",
+        "reason": "minta OTP", "next_steps": ["Jangan kirim OTP."], "input_text": "CS BCA minta OTP"}
+
+
+def _install_fu(monkeypatch, spark_payload, wonder_payload=None, wonder_fail=False):
+    calls = []
+    spark = _fu_provider("meta", "muse-spark-1.3", spark_payload, calls)
+    wonder = _fu_provider("wonder", "muse-wonder-1.0", wonder_payload or {}, calls, fail=wonder_fail)
+    monkeypatch.setattr(followup, "get_provider", lambda name=None: wonder if name == "wonder" else spark)
+    return calls
+
+
+def test_already_paid_reply_is_written_by_wonder(monkeypatch):
+    calls = _install_fu(monkeypatch,
+                        {"intent": "followup", "reply": "Telepon bank ya Mama.", "already_paid": True},
+                        {"intent": "followup", "reply": "Tenang dulu ya, Mama. Telepon bank sekarang buat blokir, terus cerita ke Hans.",
+                         "already_paid": True})
+    ans = followup.answer("aduh aku udah kirim kodenya", LAST, PROFILE)
+    assert [c[0] for c in calls] == ["meta", "wonder"] and calls[1][1] is not None  # Wonder with a timeout
+    assert ans.reply.startswith("Tenang dulu ya, Mama. Telepon bank sekarang") and ans.model == "muse-wonder-1.0"
+    assert ans.already_paid and "1500888" in ans.reply  # official contacts still added by code
+
+
+def test_wonder_failure_keeps_spark_emergency_reply(monkeypatch):
+    _install_fu(monkeypatch, {"intent": "followup", "reply": "Telepon bank ya Mama.", "already_paid": True}, wonder_fail=True)
+    ans = followup.answer("aku udah transfer", LAST, PROFILE)
+    assert ans.reply.startswith("Telepon bank ya Mama.") and ans.already_paid and ans.model == "muse-spark-1.3"
+
+
+def test_normal_followup_stays_on_spark(monkeypatch):
+    calls = _install_fu(monkeypatch, {"intent": "followup", "reply": "Hapus aja pesannya ya Mama.", "already_paid": False})
+    ans = followup.answer("terus gimana?", LAST, PROFILE)
+    assert [c[0] for c in calls] == ["meta"] and ans.model == "muse-spark-1.3"
