@@ -2,7 +2,8 @@
 
     .venv/bin/uvicorn app.main:app --port 8765          # in another terminal
     uv pip install -p .venv playwright                   # once (dev tool, not in requirements.txt)
-    .venv/bin/python -m tests.manual.record_demo         # -> demo_out/ronda_demo.mp4
+    .venv/bin/python -m tests.manual.record_demo         # story flow (follows the voiceover) -> demo_out/ronda_story.mp4
+    .venv/bin/python -m tests.manual.record_demo tour    # five-flow tour -> demo_out/ronda_demo.mp4
 
 Uses the installed Google Chrome (no browser download). Every check is real: the waits are as long as
 Muse actually takes.
@@ -129,7 +130,125 @@ class Demo:
         self.click("#p-parent > .header svg.tap", pause=1.2)
 
 
+def title_card(page, d) -> None:
+    page.evaluate("""window.__card(`<div class="shield">🛡️</div><h1>Ronda</h1>
+        <p>Asisten cek penipuan untuk orang tua di Indonesia</p>
+        <small>Live demo · Muse Spark · Muse Wonder · Muse Voice · SAM 3.1</small>`)""")
+    page.evaluate("document.getElementById('setup').click()")  # fresh session: Mama + guardian Hans
+    page.wait_for_timeout(1500)
+    page.evaluate("document.body.classList.add('clean')")
+    d.pause(3.2)
+    page.evaluate("window.__hideCard()")
+    d.pause(1.0)
+
+
+def end_card(page, d, tagline: str) -> None:
+    page.evaluate("(t) => window.__card(`<div class=\"shield\">🛡️</div><h1>Ronda</h1><p>${t}</p>"
+                  "<small>Telegram + WhatsApp · Muse Spark · Muse Wonder · Muse Voice · SAM 3.1</small>`)", tagline)
+    d.pause(4)
+
+
+def story(page, d) -> None:
+    """Follows the voiceover: fake police video call -> BAHAYA + family alert -> "udah transfer" -> QRIS."""
+    title_card(page, d)
+
+    d.caption("1 · Polisi palsu", "A “police” video call", "Fake uniform, fake office: “jangan beritahu siapa pun”.")
+    d.pause(1.2)
+    before = d.verdicts()
+    d.forward_to_ronda("polisi", [0, 1])
+    d.caption("1 · Polisi palsu", "Forward it to Ronda", "Muse Voice listens to the call, Muse Spark reasons, Muse Wonder double-checks videos.")
+    d.wait_verdict(before, timeout=40)
+    d.caption("1 · Polisi palsu", "BAHAYA: fake police",
+              "Real police never ask for money or investigate over a video call. The family is alerted right away →")
+    d.pause(7)
+
+    d.caption("2 · Terlanjur", "“aduh aku udah transfer 2 juta”", "Scammers want her alone. Ronda does the opposite.")
+    before = d.bot_messages()
+    d.type("#p-parent > .composer textarea", "aduh aku udah transfer 2 juta")
+    d.wait_bot_reply(before)
+    d.caption("2 · Terlanjur", "Emergency steps by Muse Wonder",
+              "Call the bank, report to IASC within 12 hours. Hans gets an urgent alert →")
+    d.pause(7)
+
+    d.caption("3 · QRIS", "A QRIS sticker at the warung", "Mama takes a photo before paying.")
+    d.page.mouse.move(*_center(page, "#p-parent > .composer .clip"), steps=25)
+    d.pause(0.6)
+    before = d.verdicts()
+    page.evaluate("SCENARIOS.qris_warung()")
+    d.caption("3 · QRIS", "SAM 3.1 finds the QR code", "Tiny and blurry in a big photo: SAM crops it, then the QR is decoded.")
+    d.wait_verdict(before, timeout=40)
+    d.caption("3 · QRIS", "BAHAYA: wrong name", "The sticker says Warung Bu Sri, the QR pays ANDI CELL.")
+    d.pause(6)
+
+    end_card(page, d, "Cek dulu, sebelum terlambat.")
+
+
+def tour(page, d) -> None:
+    """Five flows: nomor baru, already paid, APK in the family group, fake BRI letter, unknown opener."""
+    title_card(page, d)
+
+    d.caption("1 · Nomor baru", "“Ma, ini aku, ganti nomor”",
+              "A new number pretends to be her son and asks for Rp2 juta, “jangan bilang Papa”.")
+    d.pause(1.5)
+    before = d.verdicts()
+    d.forward_to_ronda("nomor_baru", [0, 1, 2])
+    d.caption("1 · Nomor baru", "Forward to Ronda", "Muse Spark checks it, with a safe-word check.")
+    d.wait_verdict(before)
+    d.caption("1 · Nomor baru", "BAHAYA, in Mama's words",
+              "Calls her “Mama”, names Hans, flags the friend's account. Hans gets an alert right away →")
+    d.pause(6)
+
+    d.caption("2 · Panik", "“aduh aku udah transfer 2 juta”", "Mama replies in her own words.")
+    before = d.bot_messages()
+    d.type("#p-parent > .composer textarea", "aduh aku udah transfer 2 juta")
+    d.wait_bot_reply(before)
+    d.caption("2 · Panik", "Emergency steps",
+              "Muse Wonder writes the reply; bank + IASC (<12 jam) are added by code. Hans gets an urgent alert →")
+    d.pause(6.5)
+
+    d.back_to_list()
+    d.caption("3 · Grup keluarga", "A wedding invitation… as an .apk",
+              "An unknown member posts “Kami harap kehadirannya” with an Android app.")
+    d.pause(1.2)
+    before = d.verdicts()
+    d.forward_to_ronda("keluarga", [4])
+    d.wait_verdict(before)
+    d.caption("3 · Grup keluarga", "APK = always BAHAYA", "Plus what to do if it was already installed.")
+    d.pause(5)
+
+    d.back_to_list()
+    d.caption("4 · “BRI Care”", "Tarif transfer Rp150 ribu/bulan",
+              "The real-world letter template: nomor surat, pilih 1/2, “dianggap setuju”, a form link.")
+    d.pause(1.2)
+    before = d.verdicts()
+    d.forward_to_ronda("tarif_bri", [0])
+    d.caption("4 · “BRI Care”", "Muse calls check_link", "Follows the link and checks the domain.")
+    d.wait_verdict(before)
+    d.pause(5)
+
+    d.back_to_list()
+    d.caption("5 · Nomor asing", "“Aku menemukan kontakmu…”", "A friendly opener from an unknown number.")
+    d.pause(1.2)
+    before = d.verdicts()
+    d.forward_to_ronda("kontak", [0])
+    d.wait_verdict(before)
+    d.caption("5 · Nomor asing", "WASPADA, not BAHAYA", "“Jangan dibalas”: replying tells scammers the number is active.")
+    d.pause(5)
+
+    end_card(page, d, "Teruskan dulu ke Ronda, baru transfer.")
+
+
+def _center(page, selector: str) -> tuple[float, float]:
+    box = page.locator(selector).first.bounding_box()
+    return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+
+FLOWS = {"story": (story, "ronda_story.mp4"), "tour": (tour, "ronda_demo.mp4")}
+
+
 def main() -> int:
+    name = sys.argv[1] if len(sys.argv) > 1 else "story"
+    flow, filename = FLOWS[name]
     OUT.mkdir(exist_ok=True)
     raw = OUT / "raw"
     shutil.rmtree(raw, ignore_errors=True)
@@ -141,85 +260,17 @@ def main() -> int:
         page.goto(f"{BASE}/wa")
         page.wait_for_selector("#p-parent .view.list .row")
         page.evaluate(OVERLAY)
-        d = Demo(page)
-
-        # Title card while the demo session is prepared behind it (Mama + guardian Hans, empty chats).
-        page.evaluate("""window.__card(`<div class="shield">🛡️</div><h1>Ronda</h1>
-            <p>Asisten cek penipuan untuk orang tua di Indonesia</p>
-            <small>Live demo · Muse Spark · Muse Wonder · Muse Voice · SAM 3.1</small>`)""")
-        page.evaluate("document.getElementById('setup').click()")
-        page.wait_for_timeout(1500)
-        page.evaluate("document.body.classList.add('clean')")
-        d.pause(3.2)
-        page.evaluate("window.__hideCard()")
-        d.pause(1.0)
-
-        # 1. Family impersonation
-        d.caption("1 · Nomor baru", "“Ma, ini aku, ganti nomor”",
-                  "A new number pretends to be her son and asks for Rp2 juta, “jangan bilang Papa”.")
-        d.pause(1.5)
-        before = d.verdicts()
-        d.forward_to_ronda("nomor_baru", [0, 1, 2])
-        d.caption("1 · Nomor baru", "Forward to Ronda", "Muse Spark checks it, with a safe-word check.")
-        d.wait_verdict(before)
-        d.caption("1 · Nomor baru", "BAHAYA, in Mama's words",
-                  "Calls her “Mama”, names Hans, flags the friend's account. Hans gets an alert right away →")
-        d.pause(6)
-
-        # 2. "Already transferred" follow-up
-        d.caption("2 · Panik", "“aduh aku udah transfer 2 juta”", "Mama replies in her own words.")
-        before = d.bot_messages()
-        d.type("#p-parent > .composer textarea", "aduh aku udah transfer 2 juta")
-        d.wait_bot_reply(before)
-        d.caption("2 · Panik", "Emergency steps",
-                  "Muse Wonder writes the reply; bank + IASC (<12 jam) are added by code. Hans gets an urgent alert →")
-        d.pause(6.5)
-
-        # 3. APK in the family group
-        d.back_to_list()
-        d.caption("3 · Grup keluarga", "A wedding invitation… as an .apk",
-                  "An unknown member posts “Kami harap kehadirannya” with an Android app.")
-        d.pause(1.2)
-        before = d.verdicts()
-        d.forward_to_ronda("keluarga", [4])
-        d.wait_verdict(before)
-        d.caption("3 · Grup keluarga", "APK = always BAHAYA", "Plus what to do if it was already installed.")
-        d.pause(5)
-
-        # 4. Fake bank letter with a link
-        d.back_to_list()
-        d.caption("4 · “BRI Care”", "Tarif transfer Rp150 ribu/bulan",
-                  "The real-world letter template: nomor surat, pilih 1/2, “dianggap setuju”, a form link.")
-        d.pause(1.2)
-        before = d.verdicts()
-        d.forward_to_ronda("tarif_bri", [0])
-        d.caption("4 · “BRI Care”", "Muse calls check_link", "Follows the link and checks the domain.")
-        d.wait_verdict(before)
-        d.pause(5)
-
-        # 5. Not everything is a scam
-        d.back_to_list()
-        d.caption("5 · Nomor asing", "“Aku menemukan kontakmu…”", "A friendly opener from an unknown number.")
-        d.pause(1.2)
-        before = d.verdicts()
-        d.forward_to_ronda("kontak", [0])
-        d.wait_verdict(before)
-        d.caption("5 · Nomor asing", "WASPADA, not BAHAYA", "“Jangan dibalas”: replying tells scammers the number is active.")
-        d.pause(5)
-
-        page.evaluate("""window.__card(`<div class="shield">🛡️</div><h1>Ronda</h1>
-            <p>Teruskan dulu ke Ronda, baru transfer.</p>
-            <small>Telegram + WhatsApp · Muse Spark · Muse Wonder · Muse Voice · SAM 3.1 · AduanNomor.id lookup</small>`)""")
-        d.pause(4)
+        flow(page, Demo(page))
         video = page.video.path()
         ctx.close()
         browser.close()
 
-    mp4 = OUT / "ronda_demo.mp4"
+    mp4 = OUT / filename
     import imageio_ffmpeg
     subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(video),
                     "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
                     str(mp4)], check=True)
+    shutil.rmtree(raw, ignore_errors=True)
     print("saved", mp4)
     return 0
 

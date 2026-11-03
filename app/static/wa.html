@@ -388,6 +388,10 @@ const CONTACTS_TEMPLATE = [
     { from: "+62 878-2201-6634 ~Dewi", color: "#b5651d", doc: { name: "Surat Undangan Pernikahan Digital.apk", size: "6,6 MB" },
       text: "Kami harap kehadirannya", time: "21:52" } ] },
   // Courier APK "to see the parcel photo / receipt" (§2)
+  // Fake police video call recording (research: Polda Metro Jaya warning) -> forwarded as a video
+  { id: "polisi", name: "+62 821-4407-9915", about: "~Bripka Andi · Polda Metro Jaya", color: "#1f3a5f", time: "22:05", unread: 2, msgs: [
+    { text: "Selamat siang Bu, saya Bripka Andi dari Polda Metro Jaya. Ini rekaman pemeriksaan kita tadi. Ingat ya Bu, jangan tutup telepon dan jangan beritahu siapa pun, termasuk keluarga.", time: "22:04" },
+    { video: "video_polisi_gadungan.mp4", text: "Rekaman video call pemeriksaan", time: "22:05" } ] },
   { id: "kurir", name: "+62 852-7710-4093", about: "~J&T Express", color: "#e2554a", time: "21:48", unread: 2, msgs: [
     { text: "Selamat siang, kami dari J&T Express. Paket atas nama Ibu tertahan di gudang karena alamat kurang lengkap 📦", time: "21:47" },
     { doc: { name: "Foto Paket & Resi J&T.apk", size: "2,4 MB" },
@@ -454,7 +458,7 @@ function renderList() {
   const unreadChats = CONTACTS.filter((c) => c.unread).length;
   const rows = CONTACTS.map((c) => {
     const last = c.msgs ? c.msgs[c.msgs.length - 1] : null;
-    let pv = c.preview || (last ? (last.doc ? "📄 " + last.doc.name : last.text) : "");
+    let pv = c.preview || (last ? (last.doc ? "📄 " + last.doc.name : last.video ? "🎥 Video" : last.text) : "");
     if (last && last.from) pv = `${last.from}: ${pv}`;
     const outTick = (last && last.out) || c.lastOut ? `<svg viewBox="0 0 16 11" class="tick read"><use href="#i-tick2"/></svg>` : "";
     const typing = c.ronda && P.sub.textContent.startsWith("mengetik");
@@ -485,7 +489,8 @@ function msgInner(m, c) {
     <div class="dn">${esc(m.doc.name)}</div><div class="ds">${esc(m.doc.size)} · ${esc(m.doc.name.split(".").pop().toUpperCase())}</div></div></div>` : "";
   const fwd = m.forwarded ? `<div class="fwd">${ico("fwd")} Diteruskan</div>` : "";
   const ticks = m.out ? ` <svg viewBox="0 0 16 11" class="tick read"><use href="#i-tick2"/></svg>` : "";
-  return fwd + sender + doc + (m.text ? textHtml(m.text) : "") + `<span class="meta">${esc(m.time || c.time || now())}${ticks}</span>`;
+  const video = m.video ? `<video class="media" src="/demo/assets/${esc(m.video)}#t=0.5" preload="metadata" muted playsinline></video>` : "";
+  return fwd + sender + doc + video + (m.text ? textHtml(m.text) : "") + `<span class="meta">${esc(m.time || c.time || now())}${ticks}</span>`;
 }
 
 function renderConvo() {
@@ -565,6 +570,13 @@ function forwardTo(toId, msgs) {
     return;
   }
   show("ronda");
+  const vid = msgs.find((m) => m.video);
+  if (vid) {
+    target.time = now(); target.lastOut = true; target.preview = "🎥 Video";
+    const caption = msgs.map((m) => m.text).filter(Boolean).join("\n");
+    asset(vid.video).then((blob) => sendBlob(blob, { type: "video", caption, forwarded: true }));
+    return;
+  }
   target.time = now(); target.lastOut = true; target.preview = plain(msgs[msgs.length - 1].text || msgs[msgs.length - 1].doc?.name || "");
   const doc = msgs.find((m) => m.doc);
   const texts = msgs.map((m) => m.text).filter(Boolean);
