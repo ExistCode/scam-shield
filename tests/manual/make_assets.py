@@ -145,22 +145,19 @@ def video_call_mp4(caller: str, audio: Path, path: Path) -> bool:
         frame.unlink(missing_ok=True)
 
 
-def warung_photo(sticker_path: Path, path: Path, size: int = 240, blur: float = 1.4) -> None:
-    import numpy as np
-    from PIL import ImageFilter
+def warung_photo(sticker_path: Path, path: Path, width: int = 200, blur: float = 1.2) -> None:
+    """The fake QRIS sticker in the acrylic stand of a warung counter. The counter photo
+    (assets/warung_bg_muse.webp) was generated with Muse Image (muse-image-1.0); the sticker is pasted in
+    code so the QR is real. Small and slightly blurry on purpose: the local scanner misses it, SAM 3.1
+    finds it (see app/tools/segment.py)."""
+    from PIL import ImageEnhance, ImageFilter
 
-    rng = np.random.default_rng(7)
-    W, H = 3024, 4032
-    bg = Image.fromarray(rng.integers(90, 200, (H // 8, W // 8, 3), dtype=np.uint8)).resize((W, H), Image.BICUBIC)
-    d = ImageDraw.Draw(bg)
-    for _ in range(400):  # shelves, packets, price tags
-        x, y = rng.integers(0, W), rng.integers(0, H)
-        w, h = rng.integers(40, 400), rng.integers(40, 300)
-        d.rectangle([x, y, x + w, y + h], fill=tuple(int(c) for c in rng.integers(0, 255, 3)))
+    bg = Image.open(path.parent / "warung_bg_muse.webp").convert("RGB")
     sticker = Image.open(sticker_path).convert("RGB")
-    s = sticker.resize((size, int(size * sticker.height / sticker.width)))
-    bg.paste(s, (1800, 2300))
-    bg.filter(ImageFilter.GaussianBlur(blur)).save(path, "JPEG", quality=70)
+    s = sticker.resize((width, int(width * sticker.height / sticker.width)), Image.LANCZOS)
+    s = ImageEnhance.Brightness(s).enhance(0.93).rotate(2.0, expand=True, fillcolor=(245, 245, 245))
+    bg.paste(s, (544 + (316 - s.width) // 2, 820))  # inside the empty acrylic stand
+    bg.filter(ImageFilter.GaussianBlur(blur)).save(path, "JPEG", quality=72)
 
 
 # --------------------------------------------------------------------------- main

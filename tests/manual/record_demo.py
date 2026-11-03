@@ -143,6 +143,7 @@ def title_card(page, d) -> None:
 
 
 def end_card(page, d, tagline: str) -> None:
+    page.evaluate("document.getElementById('__cap').style.opacity = 0")  # no step caption over the end card
     page.evaluate("(t) => window.__card(`<div class=\"shield\">🛡️</div><h1>Ronda</h1><p>${t}</p>"
                   "<small>Telegram + WhatsApp · Muse Spark · Muse Wonder · Muse Voice · SAM 3.1</small>`)", tagline)
     d.pause(4)
