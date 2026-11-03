@@ -254,6 +254,7 @@ def process(req: SendReq) -> None:
             if last:
                 ans = followup.answer(text, last, profile)
                 if ans and ans.intent == "followup":
+                    log.info("web follow-up for case=%s already_paid=%s model=%s", last["case_id"], ans.already_paid, ans.model)
                     push(pid, ans.reply)
                     if ans.already_paid:
                         label = persona.panggilan(profile) or "Keluargamu"
